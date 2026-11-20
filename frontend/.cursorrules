@@ -1,26 +1,37 @@
 # COGITO ("Beyond the Museum") — Frontend AI Rules
 
-Leggi sempre `docs/FRONTEND_CONTEXT.md` come fonte di verità architetturale e `docs/inspiration/museo_palazzo_aurelia_galleria_virtuale_3d.html` come riferimento strutturale e stilistico per l'esperienza museale/3D.
+Prima di progettare o modificare qualsiasi file in `frontend/`, leggi **obbligatoriamente** entrambi i documenti di riferimento:
+1. `docs/FRONTEND_CONTEXT.md` — Contratti API, modelli dati, tipi TypeScript, regole di integrazione HTTP/audio/geolocalizzazione.
+2. `docs/UX_3D_ARCHITECTURE.md` — Architettura definitiva delle 4 sale dell'Hub 3D, flusso ibrido 2D/3D, Libro d'Archivio, pannelli verticali, grafo "Mappa del Tesoro" e strategia mock-first.
+3. `docs/inspiration/museo_palazzo_aurelia_galleria_virtuale_3d.html` — Riferimento estetico e Three.js (`#0b0b0c`, `#c9a86a`, `museum-glass`, `Cormorant Garamond` + `Inter`).
 
-## Regole Obbligatorie
-1. **Stack target**: React + Vite + TypeScript (Mobile-first & Guest-first). Base URL API: `/api/v1` (configurabile via `VITE_API_BASE_URL`).
+## Regole Obbligatorie di Progetto
+1. **Stack & Scope**: React + Vite + TypeScript + Tailwind CSS + React Router + Leaflet + Three.js. Modifica **solo** file dentro `frontend/` salvo richiesta esplicita.
 2. **Zero Autenticazione**: App 100% guest/stateless, nessun login/registrazione/credenziali e nessuna API key o token privato nel codice frontend.
 3. **Contratto Tipi**: Usa esclusivamente i tipi condivisi in `src/types/api.ts` (`TipologiaEnte`, `CategoriaOpera`, `LivelloCompetenza`, `EnteOut`, `DocumentoArchivioOut`, `OperaSummaryOut`, `OperaDetailOut`, `OperaListResponse`, `OperaNearbyOut`, `NearbyResponse`, `NarrazioneOut`, `CorrelazioneItemOut`, `CorrelazioniResponse`, `AskRequest`, `AskResponse`, `ApiErrorResponse`).
-4. **Livello Utente (`localStorage`)**:
+4. **Doppio Accesso QR (2D Veloce vs Hub 3D)**:
+   - `/qr/:code` apre **subito** la pagina 2D leggera e accessibile (zero blocco WebGL su mobile), offrendo un pulsante *"Entra nella Sala 3D"* verso la Sala IV.
+   - Dall'Hub 3D (Sala I), la risoluzione di un QR apre un **portone** che guida la camera dentro la **Sala IV** dedicata all'opera.
+5. **Architettura delle 4 Sale 3D (Fisse + Lazy Loaded)**:
+   - **Sala I (Atrio di Benvenuto)**: luminosa, senza corridoio a scorrimento, con frecce direzionali verso le altre sale e sezione QR.
+   - **Sala II (Territorio)**: corridoio scorrevole con 5–7 quadri fissi popolati da `/opere/nearby`, azione *"Mostra sulla mappa"* (`/map?highlight={id}`) e tela gigante finale che apre Leaflet (con link *"Apri con Google Maps"* nei marker).
+   - **Sala III (Archivi & Connessioni)**:
+     - **Tappa 1 (destra):** Libro d'Archivio apribile in overlay HTML/CSS (ricerca/filtri a sinistra, risultati a destra da `GET /api/v1/opere`).
+     - **Tappa 2 (corridoio fisso):** pannelli **verticali** alternati sinistra/destra, sempre cliccabili per aprire la vista 2D completa `museum-glass`. Se un dato manca, lascia la postazione con faretto spento/attenuato; se nessuna ricerca è attiva, mostra un invito curatoriale serio.
+     - **Tappa 3 (fondo):** grafo radiale interattivo in **SVG/HTML stile "Mappa del Tesoro"** (`/opere/{id}/related`, 1 centro + max 3 nodi, linee curve tratteggiate), con ogni nodo cliccabile verso la **Sala IV**.
+   - **Sala IV (Singola Opera)**: stanza dedicata a un solo bene con pannello laterale completo (livelli, voce, archivio, correlate, Q&A).
+6. **Livello Utente (`localStorage`)**:
    - Chiave obbligatoria: `cogito_user_level` (`"bambino" | "ragazzo" | "adulto" | "esperto"`).
-   - Se assente al click su un'opera, apri pop-up / bottom-sheet di selezione livello, salva la scelta e chiama `GET /api/v1/opere/{id}/narration?livello=...`.
-   - Se già presente, carica subito la narrazione lasciando un selettore a 1 clic in cima alla scheda.
-5. **Geolocalizzazione & Mappa**:
-   - Usa `navigator.geolocation.getCurrentPosition(..., { timeout: 5000 })`.
-   - Se rifiutata o in timeout, fallback su Catania (`lat: 37.5079`, `lng: 15.0830`, `radius_km: 20`) mostrando il pulsante `"Usa la mia posizione"`.
-   - Se `fallback_used === true`, mostra un banner discreto con `fallback_message`.
-6. **Audio AI (Web Speech API)**:
+   - Se assente al click su un'opera, apri bottom-sheet di scelta livello, salva e chiama `/narration?livello=...`. Se già presente, carica subito lasciando un selettore a 1 clic.
+7. **Geolocalizzazione & Mappa**:
+   - `navigator.geolocation.getCurrentPosition(..., { timeout: 5000 })`.
+   - Se rifiutata o in timeout, fallback su Catania (`lat: 37.5079`, `lng: 15.0830`, `radius_km: 20`) con pulsante `"Usa la mia posizione"`.
+   - Se `fallback_used === true`, mostra banner discreto con `fallback_message`.
+8. **Audio AI (Web Speech API)**:
    - Passa sempre `narrazione.script_audio` (MAI `testo_lettura`), con `utterance.lang = "it-IT"`.
-   - Chiama sempre `window.speechSynthesis.cancel()` al cambio livello e nel cleanup `useEffect` quando si lascia la scheda.
-7. **Loading Non Bloccante & Errori HTTP**:
-   - Renderizza subito `GET /api/v1/opere/{id}` (foto, metadati, ente, `documento_archivio`).
-   - Chiama in parallelo `/narration` e `/related` con skeleton loader dedicati.
-   - `404` (`OPERA_NOT_FOUND` / `QR_NOT_FOUND`): schermata amichevole + bottone `"Torna alla mappa"`.
-   - `502` / `503` (`AI_SERVICE_UNAVAILABLE`): fallback controllato su `descrizione_ufficiale`.
-8. **Accessibilità & Qualità (WCAG 2.1 AA)**: HTML semantico, contrasti elevati, `aria-label` completi, focus visibili, codice modulare disaccoppiato dal fetching.
-9. **Contesto Archivistico e Territoriale**: Metti sempre in evidenza `documento_archivio` (segnatura, fondo, datazione, `estratto_verificato`, `ente_conservazione`) e le relazioni territoriali tra musei, archivi e siti sul territorio.
+   - Chiama sempre `window.speechSynthesis.cancel()` sia al cambio livello sia nel cleanup `useEffect` all'unmount.
+9. **Loading Non Bloccante, Q&A & Errori HTTP**:
+   - Renderizza subito `GET /api/v1/opere/{id}` e chiama in parallelo `/narration` e `/related` con skeleton loader dedicati.
+   - `404`: schermata amichevole + `"Torna alla mappa"`. `502`/`503`: fallback su `descrizione_ufficiale`.
+   - Q&A (`POST /opere/{id}/ask`): domanda tra 3 e 300 caratteri con contatore; mostra avviso visivo se `in_scope === false`. Nessun blocco IP lato frontend.
+10. **Accessibilità & Archivi (WCAG 2.1 AA)**: HTML semantico, contrasti elevati, `aria-label` completi, focus visibili, evidenza costante su `documento_archivio` e relazioni territoriali.

@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0f1116"/>
+      <stop offset="60%" stop-color="#1c1814"/>
+      <stop offset="100%" stop-color="#2b2117"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="45%">
+      <stop offset="0%" stop-color="#e4cc9a" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#0b0b0c" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e4cc9a"/>
+      <stop offset="50%" stop-color="#c9a86a"/>
+      <stop offset="100%" stop-color="#8c6d3b"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <rect width="800" height="600" fill="url(#glow)"/>
+  <!-- Lavic basalt sea / moat horizon -->
+  <path d="M0 470 Q200 455 400 472 T800 468 L800 600 L0 600 Z" fill="#121011"/>
+  <path d="M0 482 Q240 494 520 478 T800 486" fill="none" stroke="#c9a86a" stroke-opacity="0.28" stroke-width="1.5"/>
+  <!-- Fortress silhouette -->
+  <rect x="130" y="210" width="80" height="260" fill="#1d1a18" stroke="#c9a86a" stroke-opacity="0.45" stroke-width="2"/>
+  <rect x="590" y="210" width="80" height="260" fill="#1d1a18" stroke="#c9a86a" stroke-opacity="0.45" stroke-width="2"/>
+  <rect x="210" y="230" width="380" height="240" fill="#231f1c" stroke="#c9a86a" stroke-opacity="0.4" stroke-width="2"/>
+  <!-- Battlements -->
+  <path d="M130 210 v-22 h22 v22 h18 v-22 h20 v22 h20 v-22 h20 v22 M590 210 v-22 h20 v22 h20 v-22 h20 v22 h20 v-22" fill="#1d1a18" stroke="#c9a86a" stroke-opacity="0.45" stroke-width="1.5"/>
+  <!-- Central tower -->
+  <rect x="345" y="140" width="110" height="90" fill="#1f1b18" stroke="#c9a86a" stroke-opacity="0.45" stroke-width="2"/>
+  <!-- Swabian pointed portal -->
+  <path d="M332 470 V335 Q332 270 400 250 Q468 270 468 335 V470 Z" fill="#0d0c0c" stroke="url(#goldGrad)" stroke-width="3"/>
+  <path d="M348 470 V342 Q348 288 400 272 Q452 288 452 342 V470" fill="none" stroke="#e4cc9a" stroke-opacity="0.55" stroke-width="1.5"/>
+  <path d="M366 470 V350 Q366 308 400 296 Q434 308 434 350 V470" fill="#161210" stroke="#c9a86a" stroke-opacity="0.45" stroke-width="1.5"/>
+  <!-- Swabian eagle crest above arch -->
+  <circle cx="400" cy="212" r="24" fill="#151210" stroke="#c9a86a" stroke-width="1.5"/>
+  <path d="M386 212 L400 198 L414 212 L400 226 Z" fill="none" stroke="#e4cc9a" stroke-width="1.5"/>
+  <!-- Lancet windows -->
+  <path d="M250 320 V290 Q262 275 274 290 V320 Z" fill="#0d0c0c" stroke="#c9a86a" stroke-opacity="0.6"/>
+  <path d="M526 320 V290 Q538 275 550 290 V320 Z" fill="#0d0c0c" stroke="#c9a86a" stroke-opacity="0.6"/>
+  <!-- Editorial border & caption -->
+  <rect x="24" y="24" width="752" height="552" fill="none" stroke="#c9a86a" stroke-opacity="0.35" stroke-width="1.5"/>
+  <text x="400" y="72" text-anchor="middle" fill="#c9a86a" font-family="Georgia, serif" font-size="15" letter-spacing="6">CASTELLO URSINO • CATANIA</text>
+  <text x="400" y="544" text-anchor="middle" fill="#e4cc9a" font-family="Georgia, serif" font-size="22" font-style="italic">Portale Svevo di Riccardo da Lentini (1239–1250)</text>
+</svg>

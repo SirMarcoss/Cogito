@@ -536,6 +536,8 @@ export interface ApiErrorResponse {
 ---
 
 ## 10. Riferimento Strutturale e Ispirazione UI/UX (`docs/inspiration/`)
+Per l'architettura dettagliata delle **4 sale dell'Hub 3D**, il flusso ibrido 2D/3D da QR e i dettagli interattivi (Libro d'Archivio, pannelli verticali, grafo "Mappa del Tesoro"), consulta [`UX_3D_ARCHITECTURE.md`](./UX_3D_ARCHITECTURE.md).
+
 Il prototipo HTML [`museo_palazzo_aurelia_galleria_virtuale_3d.html`](./inspiration/museo_palazzo_aurelia_galleria_virtuale_3d.html) costituisce il riferimento concettuale e strutturale per il design della web-app Cogito:
 - **Estetica museale editoriale:** palette scura ad alto contrasto (`#0b0b0c`) con accenti oro (`#c9a86a`, `#e4cc9a`), pannelli `museum-glass` in glassmorphism e tipografia serif editoriale (`Cormorant Garamond`) abbinata a sans-serif pulito (`Inter`).
 - **Navigazione spaziale + HUD contestuale:** percorso 3D in Three.js (`THREE.ACESFilmicToneMapping`, texture PBR procedurali, percorso camera `CatmullRomCurve3`, raycasting sulle opere), indicatore della sala corrente, pillola di prossimità in basso e modale planimetria/mappa sale.

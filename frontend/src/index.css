@@ -1,0 +1,129 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #c9a86a;
+  --gold-light: #e4cc9a;
+  --bg-dark: #0b0b0c;
+  --panel-bg: rgba(14, 14, 16, 0.86);
+  --border-subtle: rgba(255, 255, 255, 0.12);
+}
+
+html,
+body {
+  min-height: 100%;
+  background-color: var(--bg-dark);
+  color: #f3f1ec;
+}
+
+.font-serif-display {
+  font-family: "Cormorant Garamond", Georgia, serif;
+}
+
+.museum-glass {
+  background: var(--panel-bg);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
+  border: 1px solid var(--border-subtle);
+}
+
+.museum-card {
+  background: rgba(20, 20, 22, 0.9);
+  border: 1px solid rgba(201, 168, 106, 0.22);
+}
+
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(201, 168, 106, 0.45) 50%,
+    transparent 100%
+  );
+}
+
+/* Scrollbar elegante stile Palazzo Aurelia */
+.custom-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 106, 0.35);
+  border-radius: 9999px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 106, 0.6);
+}
+
+/* Focus visibile ad alto contrasto per accessibilità WCAG 2.1 AA */
+:focus-visible {
+  outline: 2px solid var(--gold-light);
+  outline-offset: 2px;
+}
+
+/* Integrazione estetica scura Leaflet per Mappa Territoriale */
+.leaflet-container {
+  background: #0b0b0c;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.leaflet-tile-pane {
+  filter: brightness(0.76) invert(1) contrast(1.12) hue-rotate(195deg) saturate(0.35)
+    brightness(0.88);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: rgba(16, 16, 19, 0.96);
+  color: #f3f1ec;
+  border: 1px solid rgba(201, 168, 106, 0.4);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.75);
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px;
+}
+
+.leaflet-popup-close-button {
+  color: #e4cc9a !important;
+}
+
+.leaflet-control-zoom a {
+  background-color: rgba(16, 16, 19, 0.92) !important;
+  color: #e4cc9a !important;
+  border-color: rgba(201, 168, 106, 0.3) !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background-color: rgba(34, 30, 24, 0.98) !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(11, 11, 12, 0.82) !important;
+  color: #d1cdc4 !important;
+}
+
+.leaflet-control-attribution a {
+  color: #e4cc9a !important;
+}
+
+@keyframes cogitoPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(228, 204, 154, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(228, 204, 154, 0);
+  }
+}
+
+.cogito-marker-highlight {
+  animation: cogitoPulse 2s ease-in-out infinite;
+}

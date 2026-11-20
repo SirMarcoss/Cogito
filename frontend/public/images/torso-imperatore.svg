@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <radialGradient id="studioBg" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#28231d"/>
+      <stop offset="65%" stop-color="#121110"/>
+      <stop offset="100%" stop-color="#09090a"/>
+    </radialGradient>
+    <linearGradient id="marble" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f3eee4"/>
+      <stop offset="55%" stop-color="#cfc5b4"/>
+      <stop offset="100%" stop-color="#8c806d"/>
+    </linearGradient>
+    <linearGradient id="armor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e7decb"/>
+      <stop offset="50%" stop-color="#b9ab94"/>
+      <stop offset="100%" stop-color="#6f6351"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#studioBg)"/>
+  <!-- Architectural niche -->
+  <path d="M240 520 V210 Q240 100 400 100 Q560 100 560 210 V520" fill="none" stroke="#c9a86a" stroke-opacity="0.35" stroke-width="2"/>
+  <!-- Marble pedestal -->
+  <rect x="330" y="420" width="140" height="80" fill="#1e1b18" stroke="#c9a86a" stroke-opacity="0.55" stroke-width="1.5"/>
+  <rect x="315" y="495" width="170" height="22" fill="#25211d" stroke="#c9a86a" stroke-opacity="0.6" stroke-width="1.5"/>
+  <!-- Lorica musculata torso silhouette -->
+  <path d="M350 185 Q400 198 450 185 L478 212 L462 290 L446 392 L400 412 L354 392 L338 290 L322 212 Z" fill="url(#armor)" stroke="#f3eee4" stroke-opacity="0.45" stroke-width="1.5"/>
+  <!-- Muscular relief lines & paludamentum drape -->
+  <path d="M352 248 Q376 266 400 248 Q424 266 448 248" fill="none" stroke="#5b5040" stroke-width="2"/>
+  <path d="M362 290 H438 M368 326 H432 M400 248 V365" fill="none" stroke="#6c5f4d" stroke-opacity="0.7" stroke-width="1.5"/>
+  <!-- Cloak fold over left shoulder -->
+  <path d="M322 212 Q365 255 344 375 L318 355 Q306 285 322 212 Z" fill="url(#marble)" opacity="0.88"/>
+  <!-- Central gorgoneion medallion -->
+  <circle cx="400" cy="242" r="14" fill="#c9a86a" fill-opacity="0.4" stroke="#5b5040" stroke-width="1.5"/>
+  <rect x="24" y="24" width="752" height="552" fill="none" stroke="#c9a86a" stroke-opacity="0.35" stroke-width="1.5"/>
+  <text x="400" y="68" text-anchor="middle" fill="#c9a86a" font-family="Georgia, serif" font-size="15" letter-spacing="6">REPERTO MARMOREO • II SEC. D.C.</text>
+  <text x="400" y="556" text-anchor="middle" fill="#e4cc9a" font-family="Georgia, serif" font-size="22" font-style="italic">Torso Loricato di Imperatore Romano</text>
+</svg>
