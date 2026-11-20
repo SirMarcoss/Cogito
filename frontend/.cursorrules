@@ -1,0 +1,26 @@
+# COGITO ("Beyond the Museum") — Frontend AI Rules
+
+Leggi sempre `docs/FRONTEND_CONTEXT.md` come fonte di verità architetturale e `docs/inspiration/museo_palazzo_aurelia_galleria_virtuale_3d.html` come riferimento strutturale e stilistico per l'esperienza museale/3D.
+
+## Regole Obbligatorie
+1. **Stack target**: React + Vite + TypeScript (Mobile-first & Guest-first). Base URL API: `/api/v1` (configurabile via `VITE_API_BASE_URL`).
+2. **Zero Autenticazione**: App 100% guest/stateless, nessun login/registrazione/credenziali e nessuna API key o token privato nel codice frontend.
+3. **Contratto Tipi**: Usa esclusivamente i tipi condivisi in `src/types/api.ts` (`TipologiaEnte`, `CategoriaOpera`, `LivelloCompetenza`, `EnteOut`, `DocumentoArchivioOut`, `OperaSummaryOut`, `OperaDetailOut`, `OperaListResponse`, `OperaNearbyOut`, `NearbyResponse`, `NarrazioneOut`, `CorrelazioneItemOut`, `CorrelazioniResponse`, `AskRequest`, `AskResponse`, `ApiErrorResponse`).
+4. **Livello Utente (`localStorage`)**:
+   - Chiave obbligatoria: `cogito_user_level` (`"bambino" | "ragazzo" | "adulto" | "esperto"`).
+   - Se assente al click su un'opera, apri pop-up / bottom-sheet di selezione livello, salva la scelta e chiama `GET /api/v1/opere/{id}/narration?livello=...`.
+   - Se già presente, carica subito la narrazione lasciando un selettore a 1 clic in cima alla scheda.
+5. **Geolocalizzazione & Mappa**:
+   - Usa `navigator.geolocation.getCurrentPosition(..., { timeout: 5000 })`.
+   - Se rifiutata o in timeout, fallback su Catania (`lat: 37.5079`, `lng: 15.0830`, `radius_km: 20`) mostrando il pulsante `"Usa la mia posizione"`.
+   - Se `fallback_used === true`, mostra un banner discreto con `fallback_message`.
+6. **Audio AI (Web Speech API)**:
+   - Passa sempre `narrazione.script_audio` (MAI `testo_lettura`), con `utterance.lang = "it-IT"`.
+   - Chiama sempre `window.speechSynthesis.cancel()` al cambio livello e nel cleanup `useEffect` quando si lascia la scheda.
+7. **Loading Non Bloccante & Errori HTTP**:
+   - Renderizza subito `GET /api/v1/opere/{id}` (foto, metadati, ente, `documento_archivio`).
+   - Chiama in parallelo `/narration` e `/related` con skeleton loader dedicati.
+   - `404` (`OPERA_NOT_FOUND` / `QR_NOT_FOUND`): schermata amichevole + bottone `"Torna alla mappa"`.
+   - `502` / `503` (`AI_SERVICE_UNAVAILABLE`): fallback controllato su `descrizione_ufficiale`.
+8. **Accessibilità & Qualità (WCAG 2.1 AA)**: HTML semantico, contrasti elevati, `aria-label` completi, focus visibili, codice modulare disaccoppiato dal fetching.
+9. **Contesto Archivistico e Territoriale**: Metti sempre in evidenza `documento_archivio` (segnatura, fondo, datazione, `estratto_verificato`, `ente_conservazione`) e le relazioni territoriali tra musei, archivi e siti sul territorio.

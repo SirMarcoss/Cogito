@@ -1,0 +1,2789 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Museo Palazzo Aurelia — Galleria Virtuale 3D</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts: Cormorant Garamond (Editoriale Serif) & Inter (Sans-serif pulito) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --gold: #c9a86a;
+      --gold-light: #e4cc9a;
+      --bg-dark: #0b0b0c;
+      --panel-bg: rgba(14, 14, 16, 0.84);
+      --border-subtle: rgba(255, 255, 255, 0.11);
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: #f3f1ec;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      user-select: none;
+    }
+
+    .font-serif-display {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+    }
+
+    #webgl-container {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+      cursor: grab;
+    }
+
+    #webgl-container.hovering-artwork {
+      cursor: pointer;
+    }
+
+    #webgl-container.inspecting {
+      cursor: move;
+    }
+
+    /* Glassmorphism editoriale da museo */
+    .museum-glass {
+      background: var(--panel-bg);
+      backdrop-filter: blur(18px) saturate(135%);
+      -webkit-backdrop-filter: blur(18px) saturate(135%);
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* Schermata di caricamento */
+    #loading-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 100;
+      background: radial-gradient(circle at 50% 42%, #191714 0%, #0a0a0b 100%);
+      transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.9s;
+    }
+
+    #loading-screen.hidden-loader {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Cursore / Reticolo fluttuante su hover opera */
+    #artwork-tooltip {
+      position: fixed;
+      pointer-events: none;
+      z-index: 40;
+      transform: translate(-50%, -135%);
+      opacity: 0;
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    #artwork-tooltip.visible {
+      opacity: 1;
+      transform: translate(-50%, -150%);
+    }
+
+    /* Pannello di analisi laterale */
+    #inspection-panel {
+      transition: transform 0.65s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+      transform: translateX(108%);
+      opacity: 0;
+    }
+
+    #inspection-panel.open {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* Scrollbar elegante dentro il pannello */
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(201, 168, 106, 0.35);
+      border-radius: 99px;
+    }
+
+    /* Animazione rotella mouse nell'intro */
+    @keyframes scrollWheel {
+      0% { transform: translateY(0); opacity: 1; }
+      75% { transform: translateY(9px); opacity: 0; }
+      100% { transform: translateY(0); opacity: 0; }
+    }
+    .scroll-dot {
+      animation: scrollWheel 1.9s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+
+    /* Vignetta cinematografica sottile */
+    .vignette-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 58%, rgba(5, 5, 7, 0.45) 100%);
+    }
+
+    /* Range slider personalizzato per lo zoom */
+    input[type="range"].museum-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.16);
+      height: 3px;
+      border-radius: 99px;
+      outline: none;
+    }
+    input[type="range"].museum-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--gold);
+      border: 2px solid #141416;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(201, 168, 106, 0.6);
+    }
+
+    /* Transizione hero iniziale */
+    #hero-overlay {
+      transition: opacity 0.65s ease, transform 0.65s ease;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Schermata di caricamento iniziale -->
+  <div id="loading-screen" class="flex flex-col items-center justify-center px-6 text-center">
+    <p class="text-[11px] uppercase tracking-[0.38em] text-[#c9a86a] mb-3">Collezione Permanente • Roma</p>
+    <h1 class="font-serif-display text-4xl sm:text-6xl font-medium tracking-wide text-[#f7f4ee] mb-2">
+      Palazzo Aurelia
+    </h1>
+    <p class="font-serif-display italic text-lg sm:text-xl text-neutral-400 mb-10">
+      Galleria Virtuale d'Architettura e Belle Arti
+    </p>
+
+    <div class="w-64 sm:w-80 h-[2px] bg-white/10 rounded-full overflow-hidden mb-3">
+      <div id="loading-bar" class="h-full bg-gradient-to-r from-[#a6854c] via-[#e4cc9a] to-[#c9a86a] transition-all duration-300" style="width: 8%"></div>
+    </div>
+    <p id="loading-status" class="text-[11px] uppercase tracking-[0.25em] text-neutral-400">
+      Generazione marmi e architetture...
+    </p>
+  </div>
+
+  <!-- Contenitore Canvas Three.js -->
+  <div id="webgl-container" aria-label="Museo 3D Interattivo Palazzo Aurelia"></div>
+
+  <!-- Vignetta ottica cinematografica -->
+  <div class="vignette-overlay"></div>
+
+  <!-- Tooltip flottante al passaggio del mouse su un'opera -->
+  <div id="artwork-tooltip" class="museum-glass px-4 py-2.5 rounded-xl shadow-2xl border border-[#c9a86a]/30 max-w-xs">
+    <div class="flex items-center gap-2.5">
+      <span class="w-2 h-2 rounded-full bg-[#c9a86a] shadow-[0_0_8px_#c9a86a]"></span>
+      <div>
+        <p id="tooltip-title" class="font-serif-display text-base font-semibold text-white leading-tight"></p>
+        <p id="tooltip-meta" class="text-[10px] uppercase tracking-[0.18em] text-[#d6ba84] mt-0.5">Clicca per analizzare</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- HERO OVERLAY (Atrio Monumentale - sfuma iniziando a scorrere) -->
+  <div id="hero-overlay" class="fixed inset-0 z-20 pointer-events-none flex flex-col items-center justify-end pb-24 sm:pb-28 px-6 text-center">
+    <div class="max-w-2xl">
+      <div class="inline-flex items-center gap-3 mb-3">
+        <span class="h-[1px] w-8 bg-[#c9a86a]/70"></span>
+        <span class="text-[11px] uppercase tracking-[0.35em] text-[#e0c48e]">Percorso Espositivo 3D</span>
+        <span class="h-[1px] w-8 bg-[#c9a86a]/70"></span>
+      </div>
+      <h2 class="font-serif-display text-4xl sm:text-6xl font-medium tracking-wide text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.8)]">
+        Museo Palazzo Aurelia
+      </h2>
+      <p class="mt-3 text-sm sm:text-base text-neutral-200/90 font-light max-w-lg mx-auto leading-relaxed drop-shadow-[0_2px_12px_rgba(0,0,0,0.85)]">
+        Attraversa quattro sale monumentali dal Rinascimento al Contemporaneo. Scorri con la rotella del mouse per avanzare nello spazio e seleziona ogni opera per un'analisi curatoriale ravvicinata.
+      </p>
+      <div class="mt-7 flex flex-col items-center gap-2 opacity-90">
+        <div class="w-5 h-8 rounded-full border border-white/40 flex justify-center pt-1.5">
+          <div class="w-1 h-1.5 rounded-full bg-[#e4cc9a] scroll-dot"></div>
+        </div>
+        <span class="text-[10px] uppercase tracking-[0.3em] text-neutral-300">Scorri per entrare</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- HUD SUPERIORE (Sinistra: Brand & Sala Attuale | Destra: Acustica & Mappa) -->
+  <header class="fixed top-0 left-0 right-0 z-30 flex items-start justify-between p-4 sm:p-6 pointer-events-none">
+    <!-- Wordmark & Indicatore Sala Dinamico -->
+    <div class="pointer-events-auto flex flex-col gap-1.5">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg museum-glass flex items-center justify-center border border-[#c9a86a]/40">
+          <span class="font-serif-display text-sm font-bold text-[#e0c48e]">A</span>
+        </div>
+        <span class="font-serif-display text-lg sm:text-xl tracking-[0.14em] uppercase text-white/95 font-medium">
+          Palazzo Aurelia
+        </span>
+      </div>
+      <div class="flex items-center gap-2 pl-0.5">
+        <span id="hud-room-num" class="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#c9a86a]">Sala I</span>
+        <span class="text-white/25">•</span>
+        <span id="hud-room-name" class="text-xs sm:text-sm font-light tracking-wide text-neutral-200">Atrio Monumentale</span>
+      </div>
+    </div>
+
+    <!-- Controlli Destra -->
+    <div class="pointer-events-auto flex items-center gap-2 sm:gap-3">
+      <!-- Toggle Acustica Ambientale -->
+      <button id="btn-audio" type="button" class="museum-glass hover:border-[#c9a86a]/60 transition-all px-3.5 py-2 rounded-full flex items-center gap-2 text-xs text-neutral-200 cursor-pointer" title="Attiva o disattiva l'acustica ambientale della galleria">
+        <svg id="icon-audio-off" class="w-3.5 h-3.5 text-neutral-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM23 9l-6 6M17 9l6 6"/>
+        </svg>
+        <svg id="icon-audio-on" class="w-3.5 h-3.5 text-[#c9a86a] hidden" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14"/>
+        </svg>
+        <span class="hidden sm:inline tracking-wide">Acustica</span>
+      </button>
+
+      <!-- Bottone Mappa / Sale -->
+      <button id="btn-map" type="button" class="museum-glass hover:border-[#c9a86a]/60 transition-all px-3.5 py-2 rounded-full flex items-center gap-2 text-xs text-neutral-200 cursor-pointer">
+        <svg class="w-3.5 h-3.5 text-[#c9a86a]" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+        </svg>
+        <span class="tracking-wide">Mappa Sale</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- RAIL DI NAVIGAZIONE VERTICALE DESTRA (Sale I - IV) -->
+  <nav id="room-rail" aria-label="Navigazione Sale" class="fixed right-4 sm:right-6 top-1/2 -translate-y-1/2 z-30 hidden md:flex flex-col items-end gap-5">
+    <div class="relative flex flex-col items-end gap-5 pr-4">
+      <!-- Linea verticale di progresso -->
+      <div class="absolute right-0 top-1 bottom-1 w-[2px] bg-white/12 rounded-full overflow-hidden">
+        <div id="rail-progress-fill" class="w-full bg-gradient-to-b from-[#e4cc9a] to-[#c9a86a] rounded-full transition-all duration-150" style="height: 0%"></div>
+      </div>
+
+      <button data-room="0" class="room-rail-btn group flex items-center gap-3 text-right cursor-pointer">
+        <span class="text-[11px] uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white transition-colors">Atrio</span>
+        <span class="rail-dot w-2 h-2 rounded-full border border-[#c9a86a] bg-[#c9a86a] transition-all"></span>
+      </button>
+      <button data-room="1" class="room-rail-btn group flex items-center gap-3 text-right cursor-pointer">
+        <span class="text-[11px] uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white transition-colors">Rinascimento</span>
+        <span class="rail-dot w-2 h-2 rounded-full border border-white/40 bg-transparent transition-all"></span>
+      </button>
+      <button data-room="2" class="room-rail-btn group flex items-center gap-3 text-right cursor-pointer">
+        <span class="text-[11px] uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white transition-colors">Ottocento</span>
+        <span class="rail-dot w-2 h-2 rounded-full border border-white/40 bg-transparent transition-all"></span>
+      </button>
+      <button data-room="3" class="room-rail-btn group flex items-center gap-3 text-right cursor-pointer">
+        <span class="text-[11px] uppercase tracking-[0.2em] text-neutral-400 group-hover:text-white transition-colors">Contemporaneo</span>
+        <span class="rail-dot w-2 h-2 rounded-full border border-white/40 bg-transparent transition-all"></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- PILLOLA CONTESTUALE IN BASSO AL CENTRO (Opera più vicina + Suggerimento) -->
+  <div id="bottom-hud" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-2.5 w-[92%] max-w-xl pointer-events-none transition-opacity duration-500">
+    <!-- Pillola prossimità opera -->
+    <div id="proximity-pill" class="pointer-events-auto museum-glass rounded-full pl-5 pr-2 py-2 flex items-center justify-between gap-4 shadow-2xl border border-[#c9a86a]/30 opacity-0 translate-y-4 transition-all duration-400 w-auto max-w-full">
+      <div class="min-w-0">
+        <p id="prox-artist" class="text-[10px] uppercase tracking-[0.2em] text-[#c9a86a] truncate"></p>
+        <p id="prox-title" class="font-serif-display text-base sm:text-lg text-white truncate leading-tight"></p>
+      </div>
+      <button id="btn-analyze-nearest" type="button" class="shrink-0 bg-[#c9a86a] hover:bg-[#dcbe84] text-[#11100e] font-medium text-xs tracking-wide px-4 py-2 rounded-full transition-colors cursor-pointer flex items-center gap-1.5">
+        <span>Analizza l'opera</span>
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Suggerimento navigazione -->
+    <p id="nav-hint" class="text-[10px] sm:text-[11px] tracking-[0.16em] uppercase text-neutral-300/75 text-center drop-shadow">
+      Scorri con la rotella per esplorare • Clicca un'opera per analizzarla
+    </p>
+  </div>
+
+  <!-- CONTROLLI RAPIDI IN MODALITÀ ISPEZIONE (In basso a sinistra) -->
+  <div id="inspection-controls" class="fixed bottom-6 left-4 sm:left-6 z-40 hidden flex-wrap items-center gap-3">
+    <button id="btn-exit-inspect" type="button" class="museum-glass hover:border-[#c9a86a]/70 text-white px-4 py-2.5 rounded-full text-xs tracking-wider uppercase flex items-center gap-2 transition-all cursor-pointer shadow-xl">
+      <svg class="w-4 h-4 text-[#c9a86a]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+      </svg>
+      <span>Torna al percorso</span>
+      <span class="hidden sm:inline text-[10px] text-neutral-400 border border-white/15 rounded px-1.5 py-0.5 ml-1">ESC</span>
+    </button>
+
+    <div class="museum-glass px-4 py-2.5 rounded-full flex items-center gap-3 shadow-xl">
+      <span class="text-[10px] uppercase tracking-[0.2em] text-neutral-300">Zoom</span>
+      <input id="inspect-zoom-slider" type="range" min="0" max="100" value="35" class="museum-slider w-24 sm:w-32" aria-label="Zoom opera" />
+      <button id="btn-reset-view" type="button" class="text-[10px] uppercase tracking-wider text-[#c9a86a] hover:text-white transition-colors cursor-pointer">Reset</button>
+    </div>
+  </div>
+
+  <!-- PANNELLO LATERALE DI ANALISI CURATORIALE (Modalità Ispezione) -->
+  <aside id="inspection-panel" aria-label="Analisi dell'opera" class="fixed top-4 bottom-4 right-4 z-40 w-[calc(100%-2rem)] sm:w-[420px] md:w-[450px] museum-glass rounded-2xl flex flex-col overflow-hidden shadow-[0_24px_80px_rgba(0,0,0,0.75)]">
+    <!-- Intestazione Opera -->
+    <div class="p-6 pb-4 border-b border-white/10 flex items-start justify-between gap-4">
+      <div>
+        <span id="panel-room-badge" class="inline-block text-[10px] uppercase tracking-[0.26em] text-[#c9a86a] mb-1.5"></span>
+        <h2 id="panel-title" class="font-serif-display text-2xl sm:text-3xl font-medium text-white leading-tight"></h2>
+        <p id="panel-artist-year" class="text-sm text-neutral-300 mt-1 font-light"></p>
+      </div>
+      <button id="btn-close-panel" type="button" class="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-neutral-300 hover:text-white transition-colors cursor-pointer shrink-0" title="Chiudi analisi">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Scheda Tecnica compatta -->
+    <div class="grid grid-cols-2 gap-3 px-6 py-3.5 bg-white/[0.025] border-b border-white/10 text-xs">
+      <div>
+        <span class="block text-[10px] uppercase tracking-[0.2em] text-neutral-400">Tecnica</span>
+        <span id="panel-technique" class="text-neutral-100 font-light mt-0.5 block"></span>
+      </div>
+      <div>
+        <span class="block text-[10px] uppercase tracking-[0.2em] text-neutral-400">Dimensioni</span>
+        <span id="panel-dimensions" class="text-neutral-100 font-light mt-0.5 block"></span>
+      </div>
+    </div>
+
+    <!-- Punti Focali Interattivi (Zoom guidato su dettagli) -->
+    <div class="px-6 pt-4 pb-3 border-b border-white/10">
+      <div class="flex items-center justify-between mb-2.5">
+        <span class="text-[10px] uppercase tracking-[0.22em] text-[#c9a86a]">Esamina i Dettagli</span>
+        <span class="text-[10px] text-neutral-400">Trascina l'opera per ruotare</span>
+      </div>
+      <div id="panel-focal-buttons" class="flex flex-wrap gap-2">
+        <!-- Generati dinamicamente -->
+      </div>
+      <div id="focal-note-box" class="hidden mt-3 p-3 rounded-xl bg-[#c9a86a]/10 border border-[#c9a86a]/30 text-xs text-neutral-200 leading-relaxed">
+      </div>
+    </div>
+
+    <!-- Tabs di Analisi -->
+    <div class="flex border-b border-white/10 px-6 pt-2 gap-5 text-xs">
+      <button data-tab="storia" class="analysis-tab pb-3 border-b-2 border-[#c9a86a] text-white font-medium tracking-wide cursor-pointer transition-colors">
+        Storia e Contesto
+      </button>
+      <button data-tab="tecnica" class="analysis-tab pb-3 border-b-2 border-transparent text-neutral-400 hover:text-neutral-200 tracking-wide cursor-pointer transition-colors">
+        Tecnica
+      </button>
+      <button data-tab="simbologia" class="analysis-tab pb-3 border-b-2 border-transparent text-neutral-400 hover:text-neutral-200 tracking-wide cursor-pointer transition-colors">
+        Simbologia
+      </button>
+    </div>
+
+    <!-- Contenuto Testuale Scrollabile -->
+    <div class="p-6 overflow-y-auto custom-scroll flex-1">
+      <p id="panel-tab-content" class="text-sm text-neutral-200/90 leading-relaxed font-light whitespace-pre-line"></p>
+    </div>
+  </aside>
+
+  <!-- MODALE MAPPA / PANORAMICA SALE -->
+  <div id="map-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-md p-4">
+    <div class="museum-glass rounded-2xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border border-[#c9a86a]/25">
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <span class="text-[10px] uppercase tracking-[0.3em] text-[#c9a86a]">Planimetria Percorso</span>
+          <h3 class="font-serif-display text-3xl text-white mt-0.5">Sale di Palazzo Aurelia</h3>
+        </div>
+        <button id="btn-close-map" type="button" class="w-9 h-9 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center text-neutral-300 hover:text-white cursor-pointer">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <button data-jump-room="0" class="map-room-card text-left p-4 rounded-xl bg-white/[0.03] hover:bg-[#c9a86a]/15 border border-white/10 hover:border-[#c9a86a]/50 transition-all cursor-pointer group">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] uppercase tracking-[0.24em] text-[#c9a86a]">Sala I</span>
+            <span class="text-[10px] text-neutral-400">1 Opera</span>
+          </div>
+          <h4 class="font-serif-display text-xl text-white group-hover:text-[#e4cc9a] transition-colors">Atrio Monumentale</h4>
+          <p class="text-xs text-neutral-400 mt-1 font-light">Travertino, marmo Calacatta e scultura neoclassica sotto volta a cassettoni.</p>
+        </button>
+
+        <button data-jump-room="1" class="map-room-card text-left p-4 rounded-xl bg-white/[0.03] hover:bg-[#c9a86a]/15 border border-white/10 hover:border-[#c9a86a]/50 transition-all cursor-pointer group">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] uppercase tracking-[0.24em] text-[#c9a86a]">Sala II</span>
+            <span class="text-[10px] text-neutral-400">4 Opere</span>
+          </div>
+          <h4 class="font-serif-display text-xl text-white group-hover:text-[#e4cc9a] transition-colors">Rinascimento e Chiaroscuro</h4>
+          <p class="text-xs text-neutral-400 mt-1 font-light">Intonaci antracite, cornici dorate, luci drammatiche caravaggesche e bronzo classico.</p>
+        </button>
+
+        <button data-jump-room="2" class="map-room-card text-left p-4 rounded-xl bg-white/[0.03] hover:bg-[#c9a86a]/15 border border-white/10 hover:border-[#c9a86a]/50 transition-all cursor-pointer group">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] uppercase tracking-[0.24em] text-[#c9a86a]">Sala III</span>
+            <span class="text-[10px] text-neutral-400">3 Opere</span>
+          </div>
+          <h4 class="font-serif-display text-xl text-white group-hover:text-[#e4cc9a] transition-colors">Galleria dell'Ottocento</h4>
+          <p class="text-xs text-neutral-400 mt-1 font-light">Pareti bordeaux imperiale, parquet a spina di pesce e luce naturale dal lucernario.</p>
+        </button>
+
+        <button data-jump-room="3" class="map-room-card text-left p-4 rounded-xl bg-white/[0.03] hover:bg-[#c9a86a]/15 border border-white/10 hover:border-[#c9a86a]/50 transition-all cursor-pointer group">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] uppercase tracking-[0.24em] text-[#c9a86a]">Sala IV</span>
+            <span class="text-[10px] text-neutral-400">4 Opere</span>
+          </div>
+          <h4 class="font-serif-display text-xl text-white group-hover:text-[#e4cc9a] transition-colors">Padiglione Contemporaneo</h4>
+          <p class="text-xs text-neutral-400 mt-1 font-light">Cemento architettonico a vista, grandi tele astratte e installazione scultorea in bronzo.</p>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT PRINCIPALE THREE.JS (ES MODULE) -->
+  <script type="module">
+    import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+    // =========================================================================
+    // 1. DATI CURATORIALI DELLE SALE E DELLE OPERE (12 Opere totali)
+    // =========================================================================
+    const ROOMS = [
+      { id: 0, num: 'Sala I', name: 'Atrio Monumentale', progress: 0.02, zStart: 12, zEnd: -12 },
+      { id: 1, num: 'Sala II', name: 'Sala del Rinascimento e del Chiaroscuro', progress: 0.30, zStart: -12, zEnd: -40 },
+      { id: 2, num: 'Sala III', name: "Galleria dell'Ottocento e della Luce", progress: 0.62, zStart: -40, zEnd: -68 },
+      { id: 3, num: 'Sala IV', name: 'Padiglione Contemporaneo', progress: 0.88, zStart: -68, zEnd: -96 }
+    ];
+
+    const ARTWORKS_DATA = [
+      // --- SALA I: ATRIO MONUMENTALE ---
+      {
+        id: 'armonia-sospesa',
+        type: 'sculpture',
+        sculptureStyle: 'neoclassical-marble',
+        roomIdx: 0,
+        roomLabel: 'Sala I • Atrio Monumentale',
+        title: 'Armonia Sospesa',
+        artist: 'Scuola di Antonio Canova',
+        year: '1814',
+        technique: 'Marmo statuario di Carrara scolpito e levigato a mano',
+        dimensions: '215 × 82 × 82 cm (con basamento in Nero Marquina)',
+        position: [0, 0, -2.5],
+        normal: [0, 0, 1],
+        inspectOffset: [0, 2.35, 3.6],
+        inspectLookAt: [0, 2.15, -2.5],
+        tabs: {
+          storia: "Commissionata per l'inaugurazione dell'ala meridionale di Palazzo Aurelia all'inizio del XIX secolo, 'Armonia Sospesa' incarna l'ideale neoclassico di nobile semplicità e quieta grandezza.\n\nCollocata esattamente sull'asse prospettico del grande lucernario dell'atrio, la scultura funge da soglia simbolica tra il mondo esterno e la contemplazione estetica delle gallerie interne.",
+          tecnica: "Ricavata da un unico blocco di marmo statuario di Carrara privo di impurità, la superficie è stata rifinita con pietra pomice e polvere di tripoli per ottenere una traslucenza quasi epidermica.\n\nLa torsione elicoidale crea un gioco continuo di luci radenti che mutano mentre il visitatore ruota intorno al piedistallo.",
+          simbologia: "Il movimento ascendente delle curve richiama il respiro e l'equilibrio tra forza gravitazionale e slancio spirituale. Il contrasto cromatico con il basamento scuro in marmo Nero Marquina accentua la purezza luminosa della figura."
+        },
+        focalPoints: [
+          { label: 'Torsione Marmorea', offset: [1.5, 2.6, 2.1], lookAt: [0, 2.45, -2.5], note: 'La torsione continua cattura la luce zenitale del lucernario, scolpendo ombre morbide e setose.' },
+          { label: 'Levigatura Carrara', offset: [-1.2, 2.1, 1.9], lookAt: [0, 2.0, -2.5], note: 'La finitura satinata esalta le micro-venature naturali del blocco statuario di Carrara.' },
+          { label: 'Basamento Imperiale', offset: [0.4, 1.15, 2.4], lookAt: [0, 0.9, -2.5], note: 'Il plinto modanato in Nero Marquina con filetto in ottone ancora visivamente l’opera allo spazio architettonico.' }
+        ]
+      },
+
+      // --- SALA II: RINASCIMENTO E CHIAROSCURO ---
+      {
+        id: 'vocazione-luce',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 1,
+        roomLabel: 'Sala II • Rinascimento e Chiaroscuro',
+        title: 'San Matteo e il Richiamo della Luce',
+        artist: 'Cerchia di Michelangelo Merisi da Caravaggio',
+        year: 'c. 1602',
+        technique: 'Olio su tela a preparazione scura',
+        dimensions: '240 × 175 cm',
+        size: [2.7, 2.05],
+        position: [-6.42, 2.65, -21.5],
+        rotationY: Math.PI / 2,
+        normal: [1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/48/The_Calling_of_Saint_Matthew-Caravaggo_%281599-1600%29.jpg/1024px-The_Calling_of_Saint_Matthew-Caravaggo_%281599-1600%29.jpg',
+        proceduralStyle: 'baroque-chiaroscuro',
+        tabs: {
+          storia: "Dipinta nei primi anni del Seicento a Roma, questa monumentale tela appartiene alla rivoluzione naturalistica inaugurata dal Caravaggio. L'episodio sacro è trasposto in un interno quotidiano e spoglio, privo di idealizzazioni accademiche.\n\nL'opera entrò nella collezione Aurelia nel 1648 e da allora è considerata il fulcro della sala dedicata al chiaroscuro.",
+          tecnica: "L'artista utilizza una preparazione bruno-rossastra scura che affiora direttamente nelle mezzetinte. Le figure emergono dal buio grazie a pennellate corpose di biacca e ocra dorata, stese con rapidità e precisione anatomica.\n\nSi osservi la totale assenza di disegno preparatorio visibile: la luce stessa costruisce i volumi.",
+          simbologia: "Il fascio diagonale di luce radente che taglia la parete di fondo non è una semplice fonte fisica, ma la manifestazione visibile della Grazia. Le mani indicanti creano una linea di forza che guida lo sguardo attraverso l'intera scena."
+        },
+        focalPoints: [
+          { label: 'Taglio di Luce', offset: [1.65, 0.35, -0.4], lookAtOffset: [0, 0.35, -0.45], note: 'Il celebre fascio luminoso diagonale squarcia la penombra e struttura la drammaturgia del dipinto.' },
+          { label: 'Volti e Gestualità', offset: [1.55, -0.05, 0.35], lookAtOffset: [0, -0.05, 0.35], note: 'Il realismo psicologico dei gesti e degli sguardi rivela la tensione istantanea della chiamata.' },
+          { label: 'Panneggi e Velluti', offset: [1.5, -0.42, -0.15], lookAtOffset: [0, -0.42, -0.15], note: 'I riflessi carminio e ocra sui tessuti mostrano l’uso magistrale delle velature ad olio.' }
+        ]
+      },
+      {
+        id: 'dama-velluto',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 1,
+        roomLabel: 'Sala II • Rinascimento e Chiaroscuro',
+        title: 'Ritratto di Gentildonna in Velluto Cremisi',
+        artist: 'Bottega di Raffaello Sanzio',
+        year: '1516',
+        technique: 'Olio su tavola di pioppo',
+        dimensions: '118 × 88 cm',
+        size: [1.65, 2.15],
+        position: [6.42, 2.65, -26.5],
+        rotationY: -Math.PI / 2,
+        normal: [-1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Raffaello_Sanzio_-_La_Donna_Velata_-_Google_Art_Project.jpg/800px-Raffaello_Sanzio_-_La_Donna_Velata_-_Google_Art_Project.jpg',
+        proceduralStyle: 'renaissance-portrait',
+        tabs: {
+          storia: "Realizzato nel pieno splendore del Rinascimento romano, questo ritratto aristocratico unisce la perfezione geometrica della composizione piramidale a una straordinaria intimità espressiva.\n\nLa nobildonna, identificata negli inventari storici come una mecenate della famiglia Aurelia, rivolge allo spettatore uno sguardo fiero e sereno.",
+          tecnica: "Eseguito con sottili velature trasparenti su imprimitura a gesso e colla, il dipinto raggiunge una morbidezza sfumata nell'incarnato e una precisione orafa nei ricami dorati delle maniche.\n\nLa vernice naturale conferisce una profondità calda ai neri e ai cremisi.",
+          simbologia: "Il velo serico e la perla sul capo simboleggiano virtù, armonia e lignaggio. La mano portata leggermente al petto è un gesto classico di fedeltà e misura interiore."
+        },
+        focalPoints: [
+          { label: 'Sguardo e Sfumato', offset: [-1.45, 0.45, 0.0], lookAtOffset: [0, 0.45, 0.0], note: 'Passaggi tonali impercettibili modellano il volto con delicatezza rinascimentale.' },
+          { label: 'Ricami e Broccati', offset: [-1.45, -0.3, 0.2], lookAtOffset: [0, -0.3, 0.2], note: 'Le lumeggiature in giallo di piombo e stagno restituiscono la lucentezza della seta tessuta in oro.' },
+          { label: 'Velo Trasparente', offset: [-1.45, 0.2, -0.3], lookAtOffset: [0, 0.2, -0.3], note: 'Velature quasi impalpabili creano l’illusione della trama leggera del velo.' }
+        ]
+      },
+      {
+        id: 'natura-morta-fiori',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 1,
+        roomLabel: 'Sala II • Rinascimento e Chiaroscuro',
+        title: 'Natura Morta con Vaso e Melograni',
+        artist: 'Jan Davidsz. de Heem (Scuola Fiamminga)',
+        year: '1664',
+        technique: 'Olio su tela',
+        dimensions: '145 × 115 cm',
+        size: [2.1, 1.75],
+        position: [-6.42, 2.65, -33.0],
+        rotationY: Math.PI / 2,
+        normal: [1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/Jan_Davidsz._de_Heem_-_Vase_of_Flowers_-_Google_Art_Project.jpg/800px-Jan_Davidsz._de_Heem_-_Vase_of_Flowers_-_Google_Art_Project.jpg',
+        proceduralStyle: 'dutch-still-life',
+        tabs: {
+          storia: "Capolavoro del collezionismo seicentesco, questa natura morta testimonia gli intensi scambi artistici tra l'Italia barocca e le Fiandre.\n\nL'opulenza botanica e il virtuosismo ottico dei riflessi sul vetro e sul metallo ne fecero uno dei pezzi più ammirati dai viaggiatori del Grand Tour.",
+          tecnica: "Ogni petalo, goccia di rugiada e riflesso metallico è reso con pennelli finissimi di martora. L'artista sovrappone pigmenti preziosi come il blu oltremare di lapislazzuli e la lacca di garanza per ottenere una brillantezza quasi smaltata.",
+          simbologia: "Dietro la bellezza sensuale della composizione si cela un ammonimento di 'Vanitas': i fiori recisi e i frutti maturi ricordano la fugacità del tempo e la preziosità effimera della vita terrena."
+        },
+        focalPoints: [
+          { label: 'Riflessi sul Vaso', offset: [1.45, -0.35, 0.05], lookAtOffset: [0, -0.35, 0.05], note: 'Un minuscolo riflesso della finestra dello studio si specchia sulla superficie lucida.' },
+          { label: 'Composizione Floreale', offset: [1.5, 0.25, -0.15], lookAtOffset: [0, 0.25, -0.15], note: 'Specie fiorite in stagioni diverse convivono in una primavera ideale e impossibile.' },
+          { label: 'Luce e Ombra', offset: [1.5, 0.0, 0.45], lookAtOffset: [0, 0.0, 0.45], note: 'Lo sfondo scuro esalta per contrasto simultaneo la saturazione dei rossi e dei gialli.' }
+        ]
+      },
+      {
+        id: 'busto-imperiale',
+        type: 'sculpture',
+        sculptureStyle: 'patinated-bronze',
+        roomIdx: 1,
+        roomLabel: 'Sala II • Rinascimento e Chiaroscuro',
+        title: 'Genio dell’Umanesimo',
+        artist: 'Fonderia Rinascimentale Fiorentina',
+        year: '1542',
+        technique: 'Bronzo fuso a cera persa con patina scura antica',
+        dimensions: '178 × 65 × 65 cm (con plinto in travertino)',
+        position: [0, 0, -27.5],
+        normal: [0, 0, 1],
+        inspectOffset: [0, 2.05, 3.1],
+        inspectLookAt: [0, 1.85, -27.5],
+        tabs: {
+          storia: "Fuso a Firenze intorno alla metà del Cinquecento, questo bronzo monumentale celebra la rinascita della scultura antica filtrata dalla sensibilità manierista.\n\nCollocato al centro della Sala II, dialoga silenziosamente con le luci calde dei dipinti alle pareti.",
+          tecnica: "Realizzato con la complessa tecnica della fusione a cera persa indiretta, il bronzo è stato poi cesellato a freddo con bulini per affinare ogni spigolo e trattato con bitume e oli per creare la profonda patina bruno-dorata.",
+          simbologia: "La tensione delle masse plastiche simboleggia il risveglio dell'intelletto umano capace di dominare la materia grezza attraverso la misura e l'arte."
+        },
+        focalPoints: [
+          { label: 'Patina e Riflessi', offset: [1.2, 2.15, 1.8], lookAt: [0, 1.95, -27.5], note: 'La luce calda dei faretti accende i bordi dorati della lega di bronzo.' },
+          { label: 'Profilo Plastico', offset: [-1.5, 2.0, 1.4], lookAt: [0, 1.85, -27.5], note: 'Il profilo dinamico varia sensibilmente a seconda dell’angolo di osservazione.' },
+          { label: 'Plinto in Travertino', offset: [0.3, 1.05, 2.1], lookAt: [0, 0.85, -27.5], note: 'Il travertino romano poroso contrasta tattilmente con la lucentezza del metallo.' }
+        ]
+      },
+
+      // --- SALA III: GALLERIA DELL'OTTOCENTO E DELLA LUCE ---
+      {
+        id: 'crepuscolo-laguna',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 2,
+        roomLabel: "Sala III • Galleria dell'Ottocento",
+        title: 'Crepuscolo sulla Laguna di Venezia',
+        artist: 'Claude Monet (Periodo Italiano)',
+        year: '1908',
+        technique: 'Olio su tela',
+        dimensions: '160 × 215 cm',
+        size: [2.75, 1.95],
+        position: [6.67, 2.65, -48.5],
+        rotationY: -Math.PI / 2,
+        normal: [-1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Claude_Monet_-_San_Giorgio_Maggiore_at_Dusk.jpg/1024px-Claude_Monet_-_San_Giorgio_Maggiore_at_Dusk.jpg',
+        proceduralStyle: 'impressionist-venice',
+        tabs: {
+          storia: "Dipinto durante il celebre soggiorno veneziano, il quadro cattura l'istante fugace in cui il sole tramonta dietro le cupole palladiane, trasformando l'aria e l'acqua in un unico specchio incandescente.\n\nQui il soggetto non è più l'architettura in sé, ma l'atmosfera vibrante che la avvolge.",
+          tecnica: "Pennellate spezzate, rapide e giustapposte di arancio cadmio, viola cobalto e blu oltremare creano una mescolanza ottica direttamente nell'occhio dello spettatore.\n\nLa trama grezza della tela traspare leggermente nelle zone più luminose, accentuando la vibrazione cromatica.",
+          simbologia: "L'acqua della laguna dissolve i contorni solidi della pietra, evocando una visione onirica in cui il tempo sembra sospendersi nella luce dorata del tramonto."
+        },
+        focalPoints: [
+          { label: 'Incandescenza del Cielo', offset: [-1.7, 0.45, -0.3], lookAtOffset: [0, 0.45, -0.3], note: 'Sovrapposizioni di giallo cromo e vermiglione restituiscono il riverbero solare.' },
+          { label: 'Riflessi sull’Acqua', offset: [-1.65, -0.45, 0.25], lookAtOffset: [0, -0.45, 0.25], note: 'Tocchi orizzontali alternano complementari blu e arancio per simulare il moto delle onde.' },
+          { label: 'Profilo Architettonico', offset: [-1.65, 0.05, 0.1], lookAtOffset: [0, 0.05, 0.1], note: 'La silhouette in controluce emerge in toni indaco e violetti senza l’uso del nero puro.' }
+        ]
+      },
+      {
+        id: 'giardino-inverno',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 2,
+        roomLabel: "Sala III • Galleria dell'Ottocento",
+        title: 'Ninfee e Luce del Mattino',
+        artist: 'Scuola Impressionista Europea',
+        year: '1899',
+        technique: 'Olio su tela',
+        dimensions: '180 × 180 cm',
+        size: [2.2, 2.0],
+        position: [-6.67, 2.65, -54.0],
+        rotationY: Math.PI / 2,
+        normal: [1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/aa/Claude_Monet_-_Water_Lilies_-_1906%2C_Ryerson.jpg/1024px-Claude_Monet_-_Water_Lilies_-_1906%2C_Ryerson.jpg',
+        proceduralStyle: 'impressionist-garden',
+        tabs: {
+          storia: "Esposta nella luce zenitale della Galleria dell'Ottocento, quest'opera elimina completamente la linea dell'orizzonte per immergere l'osservatore direttamente nello specchio d'acqua fiorito.\n\nÈ uno dei punti di svolta verso la pittura moderna del Novecento.",
+          tecnica: "Strati densi di impasto si alternano a velature liquide di verde smeraldo, turchese e rosa pallido. La direzione della pennellata segue il galleggiare lento delle foglie sulla superficie.",
+          simbologia: "Lo stagno diventa un microcosmo in cui cielo riflesso e profondità acquatica si fondono, invitando alla meditazione silenziosa."
+        },
+        focalPoints: [
+          { label: 'Impasto Floreale', offset: [1.55, -0.1, -0.25], lookAtOffset: [0, -0.1, -0.25], note: 'I petali sono costruiti con tocchi materici di bianco di titanio e rosa carminio.' },
+          { label: 'Profondità Acquatica', offset: [1.55, 0.35, 0.3], lookAtOffset: [0, 0.35, 0.3], note: 'Pennellate verticali suggeriscono il riflesso dei salici e delle nuvole.' },
+          { label: 'Armonia Cromatica', offset: [1.6, -0.35, 0.25], lookAtOffset: [0, -0.35, 0.25], note: 'L’equilibrio tra verdi freddi e accenti caldi crea una pace visiva immediata.' }
+        ]
+      },
+      {
+        id: 'tempesta-alpi',
+        type: 'painting',
+        frameStyle: 'ornate-gold',
+        roomIdx: 2,
+        roomLabel: "Sala III • Galleria dell'Ottocento",
+        title: 'Viandante sopra la Nebbia Alpina',
+        artist: 'Scuola Romantica del Nord',
+        year: '1828',
+        technique: 'Olio su tela',
+        dimensions: '195 × 150 cm',
+        size: [2.05, 2.25],
+        position: [6.67, 2.65, -60.0],
+        rotationY: -Math.PI / 2,
+        normal: [-1, 0, 0],
+        imageUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b9/Caspar_David_Friedrich_-_Wanderer_above_the_sea_of_fog.jpg/800px-Caspar_David_Friedrich_-_Wanderer_above_the_sea_of_fog.jpg',
+        proceduralStyle: 'romantic-alpine',
+        tabs: {
+          storia: "Manifesto del Sublime romantico ottocentesco, l'opera mette l'essere umano di fronte all'immensità selvaggia e misteriosa della natura.\n\nLa figura vista di spalle invita lo spettatore a immedesimarsi nel suo sguardo verso l'infinito.",
+          tecnica: "Una straordinaria prospettiva aerea degrada gradualmente i toni dalla roccia scura in primo piano fino alle vette azzurrate avvolte da velature perlacee di nebbia.",
+          simbologia: "Il mare di nuvole nasconde l'ignoto del futuro, mentre la roccia salda rappresenta la coscienza individuale che osserva e contempla il mistero dell'esistenza."
+        },
+        focalPoints: [
+          { label: 'Il Mare di Nebbia', offset: [-1.55, 0.05, -0.3], lookAtOffset: [0, 0.05, -0.3], note: 'Velature argentee e grigio-azzurre rendono palpabile il movimento lento delle nubi.' },
+          { label: 'Figura di Spalle', offset: [-1.5, 0.15, 0.0], lookAtOffset: [0, 0.15, 0.0], note: 'La cosiddetta "Rückenfigur" funge da tramite emotivo tra l’osservatore e il paesaggio.' },
+          { label: 'Vette all’Orizzonte', offset: [-1.55, 0.45, 0.25], lookAtOffset: [0, 0.45, 0.25], note: 'La luce diffusa dell’alta quota fonde le creste montuose con il cielo.' }
+        ]
+      },
+
+      // --- SALA IV: PADIGLIONE CONTEMPORANEO ---
+      {
+        id: 'spazio-assoluto',
+        type: 'painting',
+        frameStyle: 'shadow-box',
+        roomIdx: 3,
+        roomLabel: 'Sala IV • Padiglione Contemporaneo',
+        title: 'Spazio Assoluto VII (Notturno e Oro)',
+        artist: 'Elena Valeri',
+        year: '2021',
+        technique: 'Pigmenti puri, acrilico materico e foglia d’oro 24k su lino belga',
+        dimensions: '260 × 210 cm',
+        size: [2.85, 2.25],
+        position: [-7.42, 2.75, -76.0],
+        rotationY: Math.PI / 2,
+        normal: [1, 0, 0],
+        imageUrl: null,
+        proceduralStyle: 'contemporary-colorfield',
+        tabs: {
+          storia: "Realizzata appositamente per l'apertura del Padiglione Contemporaneo di Palazzo Aurelia, la tela appartiene al ciclo dei 'Campi di Silenzio' di Elena Valeri.\n\nL'opera dialoga con il cemento architettonico a vista della sala, trasformando il colore puro in esperienza spaziale.",
+          tecnica: "Oltre venti velature traslucide di blu di Prussia, nero d'avorio e ocra bruciata sono sovrapposte su lino grezzo. Una sottile frattura centrale rivestita in foglia d'oro zecchino cattura la luce radente dei faretti museali.",
+          simbologia: "Il grande campo blu profondo evoca lo spazio cosmico e interiore; la lama dorata rappresenta l'istante di lucidità che attraversa il silenzio."
+        },
+        focalPoints: [
+          { label: 'Frattura in Foglia d’Oro', offset: [1.7, 0.05, 0.0], lookAtOffset: [0, 0.05, 0.0], note: 'La foglia metallica riflette la luce ambiente creando un bagliore vivo al variare dell’angolo.' },
+          { label: 'Bordi Vibrazionali', offset: [1.65, 0.45, -0.4], lookAtOffset: [0, 0.45, -0.4], note: 'I margini sfumati delle campiture sembrano respirare e dilatarsi sulla superficie.' },
+          { label: 'Materia e Lino', offset: [1.6, -0.45, 0.35], lookAtOffset: [0, -0.45, 0.35], note: 'I pigmenti asciutti lasciano intravedere la grana tattile del lino belga.' }
+        ]
+      },
+      {
+        id: 'geometria-silenzio',
+        type: 'painting',
+        frameStyle: 'shadow-box',
+        roomIdx: 3,
+        roomLabel: 'Sala IV • Padiglione Contemporaneo',
+        title: 'Geometria del Silenzio II',
+        artist: 'Marco Bellini',
+        year: '2023',
+        technique: 'Tecnica mista, polvere di travertino e grafite su tavola',
+        dimensions: '230 × 190 cm',
+        size: [2.5, 2.15],
+        position: [7.42, 2.75, -81.0],
+        rotationY: -Math.PI / 2,
+        normal: [-1, 0, 0],
+        imageUrl: null,
+        proceduralStyle: 'contemporary-architectural',
+        tabs: {
+          storia: "Opera chiave del minimalismo architettonico italiano contemporaneo, 'Geometria del Silenzio II' riduce il linguaggio pittorico a rapporti aurei, piani sovrapposti e ombre reali.\n\nL'artista collabora spesso con architetti per integrare la pittura direttamente nei volumi museali.",
+          tecnica: "Impasti minerali di polvere di marmo e travertino creano rilievi sottili di alcuni millimetri, poi levigati e incisi con linee precise di grafite pura e ossido di ferro.",
+          simbologia: "Un omaggio alla proporzione classica spogliata di ogni ornamento: la purezza geometrica diventa rifugio dal rumore visivo del mondo contemporaneo."
+        },
+        focalPoints: [
+          { label: 'Rilievi Minerali', offset: [-1.6, 0.2, -0.2], lookAtOffset: [0, 0.2, -0.2], note: 'La polvere di travertino conferisce un’opacità scultorea che assorbe la luce.' },
+          { label: 'Sezione Aurea', offset: [-1.65, -0.15, 0.35], lookAtOffset: [0, -0.15, 0.35], note: 'Le linee incise dividono il piano secondo rigorosi rapporti armonici.' },
+          { label: 'Contrasto Grafite', offset: [-1.6, 0.4, 0.2], lookAtOffset: [0, 0.4, 0.2], note: 'La grafite lucida crea un contrappunto metallico rispetto al fondo calcareo.' }
+        ]
+      },
+      {
+        id: 'torsione-aurelia',
+        type: 'sculpture',
+        sculptureStyle: 'contemporary-kinetic',
+        roomIdx: 3,
+        roomLabel: 'Sala IV • Padiglione Contemporaneo',
+        title: 'Torsione Aurelia',
+        artist: 'Lorenzo Ferraro',
+        year: '2024',
+        technique: 'Bronzo spazzolato e ossidiana nera lucida',
+        dimensions: '245 × 135 × 135 cm',
+        position: [0, 0, -82.0],
+        normal: [0, 0, 1],
+        inspectOffset: [0, 2.3, 4.1],
+        inspectLookAt: [0, 2.05, -82.0],
+        tabs: {
+          storia: "Installazione centrale del Padiglione Contemporaneo, 'Torsione Aurelia' è un anello continuo nello spazio che dialoga per contrasto e affinità con la scultura neoclassica dell'Atrio Monumentale.\n\nIl suo movimento lentissimo e quasi impercettibile trasforma la percezione della luce nella sala.",
+          tecnica: "Realizzata mediante fresatura di precisione e finitura manuale a spazzola radiale, la lega di bronzo satinato riflette le pareti in cemento e le tele circostanti, racchiudendo un nucleo sferico in ossidiana levigata a specchio.",
+          simbologia: "Il nodo topologico infinito rappresenta la continuità ininterrotta tra storia dell'arte classica e ricerca futura."
+        },
+        focalPoints: [
+          { label: 'Superficie Spazzolata', offset: [1.8, 2.35, 2.4], lookAt: [0, 2.15, -82.0], note: 'La micro-spazzolatura del bronzo produce riflessi anisotropici morbidi.' },
+          { label: 'Nucleo in Ossidiana', offset: [-1.4, 2.1, 2.1], lookAt: [0, 2.05, -82.0], note: 'La sfera centrale riflette l’intera architettura della galleria.' },
+          { label: 'Equilibrio sul Plinto', offset: [0.3, 1.15, 2.8], lookAt: [0, 0.95, -82.0], note: 'Il peso del metallo sembra annullarsi nel punto minimo di appoggio.' }
+        ]
+      },
+      {
+        id: 'orizzonte-infinito',
+        type: 'painting',
+        frameStyle: 'shadow-box',
+        roomIdx: 3,
+        roomLabel: 'Sala IV • Padiglione Contemporaneo',
+        title: 'Orizzonte Infinito (Polittico Finale)',
+        artist: 'Chiara Marchetti',
+        year: '2025',
+        technique: 'Olio, bitume, resine minerali e pigmenti metallici su tela monumentale',
+        dimensions: '260 × 440 cm',
+        size: [4.6, 2.55],
+        position: [0, 2.85, -92.82],
+        rotationY: 0,
+        normal: [0, 0, 1],
+        imageUrl: null,
+        proceduralStyle: 'contemporary-horizon',
+        tabs: {
+          storia: "Concepita come grandioso punto d'arrivo dell'intero asse prospettico di Palazzo Aurelia, questa tela monumentale è visibile in lontananza già attraversando gli archi delle sale precedenti.\n\nChiude il percorso espositivo aprendo lo sguardo oltre il confine fisico della parete.",
+          tecnica: "L'artista alterna colature fluide di pigmenti minerali scuri a fasce orizzontali luminosissime ottenute con polveri di mica e ocra d'oro, creando una profondità atmosferica tridimensionale.",
+          simbologia: "Un paesaggio interiore senza luogo né epoca: il punto in cui terra, acqua e cielo si fondono in una soglia di pura contemplazione."
+        },
+        focalPoints: [
+          { label: 'Linea d’Orizzonte', offset: [0, 0.05, 2.5], lookAtOffset: [0, 0.05, 0], note: 'La fascia luminosa centrale funge da magnete ottico per tutto il percorso museale.' },
+          { label: 'Atmosfera Superiore', offset: [-1.1, 0.55, 2.4], lookAtOffset: [-1.1, 0.55, 0], note: 'Velature plumbee e dorate richiamano la luce drammatica della Sala II.' },
+          { label: 'Profondità Materica', offset: [1.1, -0.55, 2.4], lookAtOffset: [1.1, -0.55, 0], note: 'Gli strati di bitume e resina creano riflessi liquidi nella parte inferiore.' }
+        ]
+      }
+    ];
+
+    // =========================================================================
+    // 2. GENERATORI PROCEDURALI DI TEXTURE PBR AD ALTA RISOLUZIONE
+    // =========================================================================
+    function createNoiseValue(x, y, seed = 1) {
+      const n = Math.sin(x * 127.1 + y * 311.7 + seed * 74.7) * 43758.5453123;
+      return n - Math.floor(n);
+    }
+
+    function smoothNoise(x, y, seed = 1) {
+      const ix = Math.floor(x), iy = Math.floor(y);
+      const fx = x - ix, fy = y - iy;
+      const ux = fx * fx * (3 - 2 * fx);
+      const uy = fy * fy * (3 - 2 * fy);
+      const a = createNoiseValue(ix, iy, seed);
+      const b = createNoiseValue(ix + 1, iy, seed);
+      const c = createNoiseValue(ix, iy + 1, seed);
+      const d = createNoiseValue(ix + 1, iy + 1, seed);
+      return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+    }
+
+    function fbm(x, y, octaves = 4, seed = 1) {
+      let val = 0, amp = 0.5, freq = 1;
+      for (let i = 0; i < octaves; i++) {
+        val += amp * smoothNoise(x * freq, y * freq, seed + i * 13);
+        freq *= 2.02;
+        amp *= 0.5;
+      }
+      return val;
+    }
+
+    // Texture Marmo Calacatta / Carrara con venature realistiche e fughe lastra
+    function createMarblePBR(options = {}) {
+      const size = 512;
+      const {
+        baseColor = [234, 229, 221],
+        veinColor = [142, 134, 124],
+        goldVein = [184, 162, 126],
+        tiles = 2,
+        dark = false,
+        repeatX = 4,
+        repeatY = 8
+      } = options;
+
+      const cAlb = document.createElement('canvas'); cAlb.width = cAlb.height = size;
+      const ctxA = cAlb.getContext('2d');
+      const imgA = ctxA.createImageData(size, size);
+
+      const cRough = document.createElement('canvas'); cRough.width = cRough.height = size;
+      const ctxR = cRough.getContext('2d');
+      const imgR = ctxR.createImageData(size, size);
+
+      const cBump = document.createElement('canvas'); cBump.width = cBump.height = size;
+      const ctxB = cBump.getContext('2d');
+      const imgB = ctxB.createImageData(size, size);
+
+      const tileSize = size / tiles;
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const tileX = Math.floor(x / tileSize);
+          const tileY = Math.floor(y / tileSize);
+          const lx = x % tileSize;
+          const ly = y % tileSize;
+
+          const seedOffset = tileX * 7.3 + tileY * 13.7;
+          const nx = (x / size) * 4.5 + seedOffset;
+          const ny = (y / size) * 4.5 + seedOffset;
+
+          const n = fbm(nx, ny, 4, 2);
+          const veinWave = Math.sin((nx * 1.4 + ny * 0.9 + n * 5.2) * Math.PI);
+          const vein = Math.pow(Math.max(0, 1 - Math.abs(veinWave)), 7.5);
+          const secondaryVein = Math.pow(Math.max(0, 1 - Math.abs(Math.sin((nx * 2.2 - ny * 1.6 + n * 4.0) * Math.PI))), 11);
+
+          let r = baseColor[0] * (0.94 + n * 0.11);
+          let g = baseColor[1] * (0.94 + n * 0.11);
+          let b = baseColor[2] * (0.94 + n * 0.11);
+
+          r = r * (1 - vein * 0.58) + veinColor[0] * (vein * 0.58);
+          g = g * (1 - vein * 0.58) + veinColor[1] * (vein * 0.58);
+          b = b * (1 - vein * 0.58) + veinColor[2] * (vein * 0.58);
+
+          r = r * (1 - secondaryVein * 0.35) + goldVein[0] * (secondaryVein * 0.35);
+          g = g * (1 - secondaryVein * 0.35) + goldVein[1] * (secondaryVein * 0.35);
+          b = b * (1 - secondaryVein * 0.35) + goldVein[2] * (secondaryVein * 0.35);
+
+          // Fuga sottile tra lastre di marmo
+          const isGrout = tiles > 0 && (lx < 2 || ly < 2);
+          let roughVal = dark ? 42 + n * 28 : 34 + n * 26 + vein * 18;
+          let bumpVal = 140 + n * 18 - vein * 14;
+
+          if (isGrout) {
+            r *= 0.62; g *= 0.62; b *= 0.62;
+            roughVal = 210;
+            bumpVal = 60;
+          }
+
+          imgA.data[idx] = Math.min(255, Math.max(0, r));
+          imgA.data[idx + 1] = Math.min(255, Math.max(0, g));
+          imgA.data[idx + 2] = Math.min(255, Math.max(0, b));
+          imgA.data[idx + 3] = 255;
+
+          imgR.data[idx] = imgR.data[idx + 1] = imgR.data[idx + 2] = roughVal;
+          imgR.data[idx + 3] = 255;
+
+          imgB.data[idx] = imgB.data[idx + 1] = imgB.data[idx + 2] = bumpVal;
+          imgB.data[idx + 3] = 255;
+        }
+      }
+
+      ctxA.putImageData(imgA, 0, 0);
+      ctxR.putImageData(imgR, 0, 0);
+      ctxB.putImageData(imgB, 0, 0);
+
+      const configure = (canvas, isColor) => {
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(repeatX, repeatY);
+        tex.anisotropy = 8;
+        if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      };
+
+      return {
+        map: configure(cAlb, true),
+        roughnessMap: configure(cRough, false),
+        bumpMap: configure(cBump, false)
+      };
+    }
+
+    // Texture Parquet Noce Scuro a Spina di Pesce (Sala III - Ottocento)
+    function createHerringboneParquetPBR(repeatX = 5, repeatY = 9) {
+      const size = 512;
+      const cAlb = document.createElement('canvas'); cAlb.width = cAlb.height = size;
+      const ctxA = cAlb.getContext('2d');
+      const cRough = document.createElement('canvas'); cRough.width = cRough.height = size;
+      const ctxR = cRough.getContext('2d');
+      const cBump = document.createElement('canvas'); cBump.width = cBump.height = size;
+      const ctxB = cBump.getContext('2d');
+
+      ctxA.fillStyle = '#2d1e14';
+      ctxA.fillRect(0, 0, size, size);
+      ctxR.fillStyle = '#5a5a5a';
+      ctxR.fillRect(0, 0, size, size);
+      ctxB.fillStyle = '#808080';
+      ctxB.fillRect(0, 0, size, size);
+
+      const plankW = 32;
+      const plankL = 128;
+
+      function drawPlank(x, y, w, h, horizontal, seed) {
+        const shade = (createNoiseValue(seed, seed * 1.7, 9) - 0.5) * 26;
+        const r = Math.min(255, Math.max(0, 88 + shade));
+        const g = Math.min(255, Math.max(0, 56 + shade * 0.72));
+        const b = Math.min(255, Math.max(0, 35 + shade * 0.5));
+
+        ctxA.fillStyle = `rgb(${r|0},${g|0},${b|0})`;
+        ctxA.fillRect(x + 1, y + 1, w - 2, h - 2);
+
+        // Venature legno
+        ctxA.strokeStyle = `rgba(34, 19, 10, 0.25)`;
+        ctxA.lineWidth = 1;
+        const lines = horizontal ? h / 3 : w / 3;
+        for (let i = 0; i < lines; i++) {
+          ctxA.beginPath();
+          if (horizontal) {
+            const yy = y + 2 + i * 3;
+            ctxA.moveTo(x + 1, yy);
+            ctxA.lineTo(x + w - 1, yy + (createNoiseValue(i, seed, 3) - 0.5) * 2);
+          } else {
+            const xx = x + 2 + i * 3;
+            ctxA.moveTo(xx, y + 1);
+            ctxA.lineTo(xx + (createNoiseValue(i, seed, 3) - 0.5) * 2, y + h - 1);
+          }
+          ctxA.stroke();
+        }
+
+        // Bordo scuro bisellato
+        ctxA.strokeStyle = 'rgba(18, 10, 6, 0.78)';
+        ctxA.lineWidth = 1.5;
+        ctxA.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+        // Roughness variabile per listone
+        const rv = 78 + Math.floor(createNoiseValue(seed, 4.2, 5) * 44);
+        ctxR.fillStyle = `rgb(${rv},${rv},${rv})`;
+        ctxR.fillRect(x + 1, y + 1, w - 2, h - 2);
+        ctxR.strokeStyle = '#d8d8d8';
+        ctxR.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+        // Bump
+        ctxB.fillStyle = '#9a9a9a';
+        ctxB.fillRect(x + 1, y + 1, w - 2, h - 2);
+        ctxB.strokeStyle = '#303030';
+        ctxB.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      }
+
+      // Motivo a spina di pesce ruotato 45° / intrecciato
+      let s = 1;
+      for (let row = -2; row < 18; row++) {
+        for (let col = -2; col < 18; col++) {
+          const baseX = col * plankW * 2;
+          const baseY = row * plankW * 2;
+          if ((row + col) % 2 === 0) {
+            drawPlank(baseX, baseY, plankL, plankW, true, s++);
+            drawPlank(baseX, baseY + plankW, plankW, plankL, false, s++);
+          } else {
+            drawPlank(baseX + plankW, baseY, plankW, plankL, false, s++);
+            drawPlank(baseX, baseY + plankW, plankL, plankW, true, s++);
+          }
+        }
+      }
+
+      const configure = (canvas, isColor) => {
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+        tex.repeat.set(repeatX, repeatY);
+        tex.anisotropy = 8;
+        if (isColor) tex.colorSpace = THREE.SRGBColorSpace;
+        return tex;
+      };
+
+      return {
+        map: configure(cAlb, true),
+        roughnessMap: configure(cRough, false),
+        bumpMap: configure(cBump, false)
+      };
+    }
+
+    // Texture Intonaco Veneziano / Muro Museale / Cemento Architettonico
+    function createPlasterWallPBR(hexBase, options = {}) {
+      const { concrete = false, repeatX = 4, repeatY = 2, variation = 14 } = options;
+      const size = 512;
+      const col = new THREE.Color(hexBase);
+      const br = col.r * 255, bg = col.g * 255, bb = col.b * 255;
+
+      const cAlb = document.createElement('canvas'); cAlb.width = cAlb.height = size;
+      const ctxA = cAlb.getContext('2d');
+      const imgA = ctxA.createImageData(size, size);
+
+      const cBump = document.createElement('canvas'); cBump.width = cBump.height = size;
+      const ctxB = cBump.getContext('2d');
+      const imgB = ctxB.createImageData(size, size);
+
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          const n1 = fbm(x / 64, y / 64, 4, 11);
+          const grain = (createNoiseValue(x, y, 7) - 0.5) * (concrete ? 12 : 6);
+          const delta = (n1 - 0.5) * variation * 2 + grain;
+
+          let r = br + delta;
+          let g = bg + delta;
+          let b = bb + delta;
+
+          let bv = 128 + (n1 - 0.5) * 42 + grain * 1.4;
+
+          if (concrete) {
+            // Giunti cassero cemento architettonico
+            const seamX = x % 256 < 2;
+            const seamY = y % 128 < 2;
+            if (seamX || seamY) {
+              r -= 20; g -= 20; b -= 20;
+              bv = 70;
+            }
+            // Fori distanziatori tipici del cemento faccia a vista
+            const dx = (x % 128) - 64;
+            const dy = (y % 128) - 64;
+            if (dx * dx + dy * dy < 14) {
+              r -= 28; g -= 28; b -= 28;
+              bv = 45;
+            }
+          }
+
+          imgA.data[idx] = Math.min(255, Math.max(0, r));
+          imgA.data[idx + 1] = Math.min(255, Math.max(0, g));
+          imgA.data[idx + 2] = Math.min(255, Math.max(0, b));
+          imgA.data[idx + 3] = 255;
+
+          imgB.data[idx] = imgB.data[idx + 1] = imgB.data[idx + 2] = Math.min(255, Math.max(0, bv));
+          imgB.data[idx + 3] = 255;
+        }
+      }
+
+      ctxA.putImageData(imgA, 0, 0);
+      ctxB.putImageData(imgB, 0, 0);
+
+      const map = new THREE.CanvasTexture(cAlb);
+      map.wrapS = map.wrapT = THREE.RepeatWrapping;
+      map.repeat.set(repeatX, repeatY);
+      map.colorSpace = THREE.SRGBColorSpace;
+      map.anisotropy = 8;
+
+      const bumpMap = new THREE.CanvasTexture(cBump);
+      bumpMap.wrapS = bumpMap.wrapT = THREE.RepeatWrapping;
+      bumpMap.repeat.set(repeatX, repeatY);
+
+      return { map, bumpMap };
+    }
+
+    // Trama tela di lino per bump map dei dipinti
+    function createCanvasWeaveBump() {
+      const size = 256;
+      const c = document.createElement('canvas'); c.width = c.height = size;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, size, size);
+      for (let y = 0; y < size; y += 3) {
+        ctx.fillStyle = y % 6 === 0 ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.14)';
+        ctx.fillRect(0, y, size, 1);
+      }
+      for (let x = 0; x < size; x += 3) {
+        ctx.fillStyle = x % 6 === 0 ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)';
+        ctx.fillRect(x, 0, 1, size);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(6, 6);
+      return tex;
+    }
+
+    // Generatore Pittorico Procedurale (Fallback realistico + opere contemporanee originali)
+    function generatePainterlyCanvas(style, width = 768, height = 576) {
+      const c = document.createElement('canvas');
+      c.width = width; c.height = height;
+      const ctx = c.getContext('2d');
+
+      const rand = (s) => {
+        const x = Math.sin(s * 91.345) * 47453.5453;
+        return x - Math.floor(x);
+      };
+
+      if (style === 'baroque-chiaroscuro') {
+        // Atmosfera Caravaggesca: sfondo scuro caldo, fascio diagonale di luce dorata, figure in chiaroscuro
+        const bg = ctx.createLinearGradient(0, 0, width, height);
+        bg.addColorStop(0, '#140e0a');
+        bg.addColorStop(0.55, '#241810');
+        bg.addColorStop(1, '#0c0806');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        // Fascio di luce diagonale drammatico
+        ctx.save();
+        const beam = ctx.createLinearGradient(width * 0.95, height * 0.05, width * 0.15, height * 0.85);
+        beam.addColorStop(0, 'rgba(246, 206, 134, 0.55)');
+        beam.addColorStop(0.45, 'rgba(204, 148, 76, 0.24)');
+        beam.addColorStop(1, 'rgba(30, 18, 10, 0)');
+        ctx.fillStyle = beam;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.72, 0);
+        ctx.lineTo(width, 0);
+        ctx.lineTo(width * 0.42, height);
+        ctx.lineTo(0, height * 0.78);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // Figure drappeggiate in chiaroscuro (velluti cremisi, ocra e volti illuminati)
+        const figures = [
+          { x: 0.26, y: 0.62, r: 0.17, robe: '#6d1b18' },
+          { x: 0.44, y: 0.58, r: 0.19, robe: '#9e6c2c' },
+          { x: 0.66, y: 0.56, r: 0.18, robe: '#471a16' },
+          { x: 0.81, y: 0.52, r: 0.16, robe: '#2b221c' }
+        ];
+        figures.forEach((f, i) => {
+          const cx = width * f.x, cy = height * f.y;
+          const gr = ctx.createRadialGradient(cx + 15, cy - 30, 8, cx, cy + 40, width * f.r);
+          gr.addColorStop(0, f.robe);
+          gr.addColorStop(1, 'rgba(12, 8, 6, 0.95)');
+          ctx.fillStyle = gr;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy + 80, width * f.r * 0.68, height * 0.36, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Volto illuminato di taglio
+          const headGrad = ctx.createRadialGradient(cx + 14, cy - 68, 4, cx, cy - 60, 46);
+          headGrad.addColorStop(0, '#f0cca0');
+          headGrad.addColorStop(0.55, '#a8744a');
+          headGrad.addColorStop(1, '#1d120c');
+          ctx.fillStyle = headGrad;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - 62, 34, 44, (i - 1.5) * 0.08, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      } else if (style === 'renaissance-portrait') {
+        const bg = ctx.createRadialGradient(width * 0.48, height * 0.38, 40, width * 0.5, height * 0.5, width * 0.72);
+        bg.addColorStop(0, '#3e3326');
+        bg.addColorStop(0.6, '#1f1a15');
+        bg.addColorStop(1, '#0f0c09');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        // Busto e abito velluto cremisi con ricami oro
+        const dress = ctx.createRadialGradient(width * 0.48, height * 0.72, 20, width * 0.5, height * 0.82, width * 0.48);
+        dress.addColorStop(0, '#962222');
+        dress.addColorStop(0.55, '#591113');
+        dress.addColorStop(1, '#1a0607');
+        ctx.fillStyle = dress;
+        ctx.beginPath();
+        ctx.ellipse(width * 0.5, height * 0.86, width * 0.36, height * 0.42, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Ricami oro sulle maniche
+        ctx.strokeStyle = 'rgba(224, 186, 108, 0.45)';
+        ctx.lineWidth = 3;
+        for (let i = 0; i < 14; i++) {
+          ctx.beginPath();
+          ctx.arc(width * (0.28 + (i % 7) * 0.07), height * (0.72 + Math.floor(i / 7) * 0.08), 12, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Velo serico traslucido
+        ctx.fillStyle = 'rgba(235, 224, 202, 0.22)';
+        ctx.beginPath();
+        ctx.ellipse(width * 0.5, height * 0.37, width * 0.22, height * 0.26, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Volto sfumato rinascimentale
+        const face = ctx.createRadialGradient(width * 0.47, height * 0.34, 10, width * 0.5, height * 0.37, width * 0.16);
+        face.addColorStop(0, '#f3d8b8');
+        face.addColorStop(0.65, '#cfa078');
+        face.addColorStop(1, '#68442e');
+        ctx.fillStyle = face;
+        ctx.beginPath();
+        ctx.ellipse(width * 0.5, height * 0.37, width * 0.125, height * 0.145, 0, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'dutch-still-life') {
+        const bg = ctx.createRadialGradient(width * 0.5, height * 0.45, 20, width * 0.5, height * 0.5, width * 0.7);
+        bg.addColorStop(0, '#2a2219');
+        bg.addColorStop(1, '#0c0907');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        // Piano in marmo scuro
+        ctx.fillStyle = '#1b1612';
+        ctx.fillRect(0, height * 0.76, width, height * 0.24);
+
+        // Vaso in bronzo/vetro
+        const vase = ctx.createLinearGradient(width * 0.4, height * 0.52, width * 0.6, height * 0.78);
+        vase.addColorStop(0, '#2b2015');
+        vase.addColorStop(0.4, '#8a6d43');
+        vase.addColorStop(0.65, '#3b2b1a');
+        vase.addColorStop(1, '#120c08');
+        ctx.fillStyle = vase;
+        ctx.beginPath();
+        ctx.ellipse(width * 0.5, height * 0.67, width * 0.13, height * 0.14, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Bouquet opulento
+        const palette = ['#b82925', '#e4b84d', '#f2e4c9', '#7d1b24', '#d67432', '#3a5735', '#283d25'];
+        for (let i = 0; i < 65; i++) {
+          const angle = rand(i * 3.1) * Math.PI * 2;
+          const dist = Math.sqrt(rand(i * 7.7)) * width * 0.26;
+          const fx = width * 0.5 + Math.cos(angle) * dist;
+          const fy = height * 0.42 + Math.sin(angle) * dist * 0.85;
+          const rad = 14 + rand(i * 5.3) * 26;
+          const col = palette[i % palette.length];
+          const fg = ctx.createRadialGradient(fx - rad * 0.25, fy - rad * 0.25, 2, fx, fy, rad);
+          fg.addColorStop(0, col);
+          fg.addColorStop(1, 'rgba(18, 12, 8, 0.8)');
+          ctx.fillStyle = fg;
+          ctx.beginPath();
+          ctx.arc(fx, fy, rad, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (style === 'impressionist-venice') {
+        const sky = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+        sky.addColorStop(0, '#3a4978');
+        sky.addColorStop(0.45, '#b86c5a');
+        sky.addColorStop(0.8, '#f0a64b');
+        sky.addColorStop(1, '#f8d77a');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, width, height * 0.62);
+
+        const water = ctx.createLinearGradient(0, height * 0.6, 0, height);
+        water.addColorStop(0, '#e3984a');
+        water.addColorStop(0.45, '#7c536d');
+        water.addColorStop(1, '#263459');
+        ctx.fillStyle = water;
+        ctx.fillRect(0, height * 0.6, width, height * 0.4);
+
+        // Silhouette di San Giorgio Maggiore
+        ctx.fillStyle = 'rgba(48, 42, 74, 0.82)';
+        ctx.beginPath();
+        ctx.moveTo(width * 0.15, height * 0.6);
+        ctx.lineTo(width * 0.28, height * 0.54);
+        ctx.arc(width * 0.42, height * 0.54, 48, Math.PI, 0);
+        ctx.lineTo(width * 0.55, height * 0.54);
+        ctx.lineTo(width * 0.56, height * 0.28);
+        ctx.lineTo(width * 0.585, height * 0.22);
+        ctx.lineTo(width * 0.61, height * 0.28);
+        ctx.lineTo(width * 0.62, height * 0.55);
+        ctx.lineTo(width * 0.82, height * 0.6);
+        ctx.closePath();
+        ctx.fill();
+
+        // Pennellate impressioniste sull'acqua e nel cielo
+        const strokes = ['#f5c259', '#d9693d', '#495b8f', '#8e5778', '#f9e39e'];
+        for (let i = 0; i < 420; i++) {
+          ctx.fillStyle = strokes[i % strokes.length];
+          ctx.globalAlpha = 0.28 + rand(i * 2.1) * 0.32;
+          const sx = rand(i * 4.3) * width;
+          const sy = height * 0.58 + rand(i * 9.7) * height * 0.42;
+          ctx.fillRect(sx, sy, 18 + rand(i) * 34, 4 + rand(i * 3) * 5);
+        }
+        ctx.globalAlpha = 1;
+      } else if (style === 'impressionist-garden') {
+        const bg = ctx.createLinearGradient(0, 0, width, height);
+        bg.addColorStop(0, '#2a4c57');
+        bg.addColorStop(0.5, '#3d6968');
+        bg.addColorStop(1, '#1d3647');
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, width, height);
+
+        const cols = ['#4f8272', '#2c5266', '#7ba396', '#9bb7b8', '#3c6152'];
+        for (let i = 0; i < 360; i++) {
+          ctx.fillStyle = cols[i % cols.length];
+          ctx.globalAlpha = 0.35;
+          ctx.beginPath();
+          ctx.ellipse(rand(i * 5.1) * width, rand(i * 8.3) * height, 28 + rand(i) * 40, 8 + rand(i * 2) * 14, rand(i) * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Ninfee
+        ctx.globalAlpha = 0.9;
+        for (let i = 0; i < 45; i++) {
+          const lx = width * 0.1 + rand(i * 6.7) * width * 0.8;
+          const ly = height * 0.15 + rand(i * 3.9) * height * 0.72;
+          ctx.fillStyle = '#385e41';
+          ctx.beginPath();
+          ctx.ellipse(lx, ly, 24, 10, 0, 0, Math.PI * 2);
+          ctx.fill();
+          if (i % 2 === 0) {
+            ctx.fillStyle = i % 4 === 0 ? '#f7e9e4' : '#e6a3ad';
+            ctx.beginPath();
+            ctx.ellipse(lx + 3, ly - 3, 10, 6, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.globalAlpha = 1;
+      } else if (style === 'romantic-alpine') {
+        const sky = ctx.createLinearGradient(0, 0, 0, height);
+        sky.addColorStop(0, '#6e7f91');
+        sky.addColorStop(0.48, '#cbd3d6');
+        sky.addColorStop(0.75, '#9ea8ad');
+        sky.addColorStop(1, '#3b4247');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, width, height);
+
+        // Catene montuose sfumate nella nebbia
+        const peaks = [
+          { y: 0.52, col: 'rgba(110,124,138,0.55)' },
+          { y: 0.62, col: 'rgba(72,82,92,0.72)' },
+          { y: 0.76, col: 'rgba(30,33,36,0.95)' }
+        ];
+        peaks.forEach((p, idx) => {
+          ctx.fillStyle = p.col;
+          ctx.beginPath();
+          ctx.moveTo(0, height);
+          for (let x = 0; x <= width; x += 24) {
+            const h = height * p.y + Math.sin(x * 0.008 + idx * 2.1) * 55 + Math.cos(x * 0.02 + idx) * 28;
+            ctx.lineTo(x, h);
+          }
+          ctx.lineTo(width, height);
+          ctx.closePath();
+          ctx.fill();
+        });
+
+        // Promontorio scuro centrale + figura romantica
+        ctx.fillStyle = '#1b1d1f';
+        ctx.beginPath();
+        ctx.moveTo(width * 0.28, height);
+        ctx.lineTo(width * 0.48, height * 0.58);
+        ctx.lineTo(width * 0.56, height * 0.6);
+        ctx.lineTo(width * 0.74, height);
+        ctx.closePath();
+        ctx.fill();
+
+        // Silhouette viandante
+        ctx.fillStyle = '#121518';
+        ctx.fillRect(width * 0.475, height * 0.34, width * 0.055, height * 0.25);
+        ctx.beginPath();
+        ctx.arc(width * 0.502, height * 0.31, 18, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (style === 'contemporary-colorfield') {
+        // Rothko / Soulages: Campi profondi indaco, blu di Prussia e frattura in foglia d'oro
+        ctx.fillStyle = '#0d1321';
+        ctx.fillRect(0, 0, width, height);
+
+        const topField = ctx.createRadialGradient(width * 0.5, height * 0.3, 40, width * 0.5, height * 0.3, width * 0.55);
+        topField.addColorStop(0, '#1e3252');
+        topField.addColorStop(0.7, '#111d33');
+        topField.addColorStop(1, 'rgba(13, 19, 33, 0)');
+        ctx.fillStyle = topField;
+        ctx.fillRect(width * 0.06, height * 0.06, width * 0.88, height * 0.45);
+
+        const botField = ctx.createRadialGradient(width * 0.5, height * 0.74, 30, width * 0.5, height * 0.74, width * 0.52);
+        botField.addColorStop(0, '#2c1c16');
+        botField.addColorStop(0.75, '#160f0d');
+        botField.addColorStop(1, 'rgba(13, 19, 33, 0)');
+        ctx.fillStyle = botField;
+        ctx.fillRect(width * 0.06, height * 0.53, width * 0.88, height * 0.41);
+
+        // Frattura orizzontale in foglia d'oro 24k
+        const goldGrad = ctx.createLinearGradient(width * 0.08, 0, width * 0.92, 0);
+        goldGrad.addColorStop(0, 'rgba(180, 140, 68, 0.15)');
+        goldGrad.addColorStop(0.25, '#d6b065');
+        goldGrad.addColorStop(0.5, '#f2d99b');
+        goldGrad.addColorStop(0.75, '#c49849');
+        goldGrad.addColorStop(1, 'rgba(180, 140, 68, 0.15)');
+        ctx.fillStyle = goldGrad;
+        ctx.fillRect(width * 0.07, height * 0.505, width * 0.86, height * 0.022);
+
+        // Micro-texture materica
+        for (let i = 0; i < 600; i++) {
+          ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,0.025)' : 'rgba(0,0,0,0.06)';
+          ctx.fillRect(rand(i * 4.1) * width, rand(i * 7.3) * height, 40 + rand(i) * 90, 2);
+        }
+      } else if (style === 'contemporary-architectural') {
+        // Minimalismo materico in polvere di travertino, ocra pallida e linee di grafite
+        ctx.fillStyle = '#ddd7cc';
+        ctx.fillRect(0, 0, width, height);
+
+        // Rilievi geometrici
+        ctx.fillStyle = '#cbc3b4';
+        ctx.fillRect(width * 0.08, height * 0.1, width * 0.44, height * 0.8);
+        ctx.fillStyle = '#252422';
+        ctx.fillRect(width * 0.56, height * 0.18, width * 0.34, height * 0.54);
+        ctx.fillStyle = '#b89660';
+        ctx.fillRect(width * 0.49, height * 0.46, width * 0.14, height * 0.34);
+
+        // Linee architettoniche in grafite
+        ctx.strokeStyle = 'rgba(26, 25, 24, 0.72)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(width * 0.08, height * 0.46);
+        ctx.lineTo(width * 0.92, height * 0.46);
+        ctx.moveTo(width * 0.52, height * 0.06);
+        ctx.lineTo(width * 0.52, height * 0.94);
+        ctx.stroke();
+
+        // Cerchio aureo sottile
+        ctx.strokeStyle = 'rgba(220, 200, 165, 0.55)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(width * 0.52, height * 0.46, width * 0.22, 0, Math.PI * 2);
+        ctx.stroke();
+      } else if (style === 'contemporary-horizon') {
+        // Grande polittico finale atmosferico
+        const g = ctx.createLinearGradient(0, 0, 0, height);
+        g.addColorStop(0, '#13161d');
+        g.addColorStop(0.38, '#282d38');
+        g.addColorStop(0.51, '#d9b574');
+        g.addColorStop(0.55, '#f5dfb1');
+        g.addColorStop(0.61, '#5c4936');
+        g.addColorStop(0.8, '#1a1817');
+        g.addColorStop(1, '#0c0c0e');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, width, height);
+
+        for (let i = 0; i < 450; i++) {
+          const y = rand(i * 5.9) * height;
+          const distCenter = Math.abs(y - height * 0.53) / height;
+          ctx.fillStyle = distCenter < 0.08 ? 'rgba(250, 226, 172, 0.14)' : 'rgba(255, 255, 255, 0.03)';
+          ctx.fillRect(rand(i * 2.3) * width * 0.5, y, width * (0.25 + rand(i) * 0.45), 2 + rand(i * 4) * 5);
+        }
+      }
+
+      // Vignetta pittorica e leggera patina museale su tutte le tele
+      const vig = ctx.createRadialGradient(width * 0.5, height * 0.5, width * 0.25, width * 0.5, height * 0.5, width * 0.72);
+      vig.addColorStop(0, 'rgba(0,0,0,0)');
+      vig.addColorStop(1, 'rgba(10,7,4,0.34)');
+      ctx.fillStyle = vig;
+      ctx.fillRect(0, 0, width, height);
+
+      return c;
+    }
+
+    // =========================================================================
+    // 3. SETUP SCENA THREE.JS, RENDERER E AMBIENTE RIFLESSIVO (PMREM)
+    // =========================================================================
+    const container = document.getElementById('webgl-container');
+    const loadingBar = document.getElementById('loading-bar');
+    const loadingStatus = document.getElementById('loading-status');
+    const loadingScreen = document.getElementById('loading-screen');
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b0b0d);
+    scene.fog = new THREE.FogExp2(0x111012, 0.0115);
+
+    const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.1, 140);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance'
+    });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.12;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Environment Map procedurale (PMREM) per riflessi realistici su marmo, oro e bronzo
+    function buildGalleryEnvironment() {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const envScene = new THREE.Scene();
+      envScene.background = new THREE.Color(0x1a1816);
+
+      const stripMat = new THREE.MeshBasicMaterial({ color: 0xfff2dc });
+      for (let i = -2; i <= 2; i++) {
+        const strip = new THREE.Mesh(new THREE.PlaneGeometry(8, 1.8), stripMat);
+        strip.position.set(i * 4.5, 6, 0);
+        strip.rotation.x = Math.PI / 2;
+        envScene.add(strip);
+      }
+      const warmWall = new THREE.Mesh(new THREE.BoxGeometry(26, 12, 26), new THREE.MeshBasicMaterial({ color: 0x3a322a, side: THREE.BackSide }));
+      envScene.add(warmWall);
+
+      const rt = pmrem.fromScene(envScene, 0.04);
+      pmrem.dispose();
+      return rt.texture;
+    }
+
+    scene.environment = buildGalleryEnvironment();
+
+    // Luce emisferica globale morbida da galleria
+    const hemiLight = new THREE.HemisphereLight(0xfff5e6, 0x26201c, 0.55);
+    scene.add(hemiLight);
+
+    // =========================================================================
+    // 4. COSTRUZIONE ARCHITETTONICA FOTOREALISTICA DELLE 4 SALE
+    // =========================================================================
+    const loadingStep = (pct, msg) => {
+      loadingBar.style.width = `${pct}%`;
+      loadingStatus.textContent = msg;
+    };
+
+    loadingStep(25, 'Levigatura marmi Calacatta e parquet...');
+
+    const calacattaFloor = createMarblePBR({ baseColor: [232, 226, 217], veinColor: [134, 126, 118], goldVein: [188, 166, 124], tiles: 2, repeatX: 4, repeatY: 7 });
+    const darkMarbleFloor = createMarblePBR({ baseColor: [56, 54, 52], veinColor: [168, 160, 146], goldVein: [198, 174, 128], tiles: 2, dark: true, repeatX: 4, repeatY: 7 });
+    const travertineFloor = createMarblePBR({ baseColor: [204, 196, 184], veinColor: [158, 149, 136], goldVein: [176, 166, 150], tiles: 2, repeatX: 4, repeatY: 7 });
+    const parquetFloor = createHerringboneParquetPBR(4, 7);
+
+    const wallTravertine = createPlasterWallPBR('#d8cfc0', { repeatX: 4, repeatY: 2, variation: 12 });
+    const wallCharcoal = createPlasterWallPBR('#2c302e', { repeatX: 4, repeatY: 2, variation: 10 });
+    const wallBurgundy = createPlasterWallPBR('#4c2428', { repeatX: 4, repeatY: 2, variation: 11 });
+    const wallConcrete = createPlasterWallPBR('#7d7c78', { concrete: true, repeatX: 4, repeatY: 2, variation: 14 });
+    const canvasBump = createCanvasWeaveBump();
+
+    // Materiali architettonici condivisi
+    const matStoneTrim = new THREE.MeshStandardMaterial({ color: 0xded6c8, roughness: 0.58, metalness: 0.04 });
+    const matDarkTrim = new THREE.MeshStandardMaterial({ color: 0x1e1d1c, roughness: 0.32, metalness: 0.12 });
+    const matBrass = new THREE.MeshStandardMaterial({ color: 0xcba662, roughness: 0.24, metalness: 0.88 });
+    const matGildedFrame = new THREE.MeshStandardMaterial({ color: 0xc2994c, roughness: 0.28, metalness: 0.82 });
+    const matShadowFrame = new THREE.MeshStandardMaterial({ color: 0x161618, roughness: 0.42, metalness: 0.2 });
+    const matDarkBronze = new THREE.MeshStandardMaterial({ color: 0x3b2c20, roughness: 0.34, metalness: 0.84 });
+
+    // Helper per costruire una stanza architettonica completa
+    function buildRoom({ zStart, zEnd, width, height, floorMat, wallMat, ceilingColor, trimMat, hasSkylight = false, coffered = false, hasWainscot = false }) {
+      const length = Math.abs(zEnd - zStart);
+      const zCenter = (zStart + zEnd) / 2;
+      const group = new THREE.Group();
+
+      // Pavimento
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(width, length), floorMat);
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.set(0, 0, zCenter);
+      floor.receiveShadow = true;
+      group.add(floor);
+
+      // Pareti Laterali (Sinistra e Destra)
+      const sideGeo = new THREE.PlaneGeometry(length, height);
+      const leftWall = new THREE.Mesh(sideGeo, wallMat);
+      leftWall.position.set(-width / 2, height / 2, zCenter);
+      leftWall.rotation.y = Math.PI / 2;
+      leftWall.receiveShadow = true;
+      group.add(leftWall);
+
+      const rightWall = new THREE.Mesh(sideGeo, wallMat);
+      rightWall.position.set(width / 2, height / 2, zCenter);
+      rightWall.rotation.y = -Math.PI / 2;
+      rightWall.receiveShadow = true;
+      group.add(rightWall);
+
+      // Battiscopa e Cornici superiori (Crown Molding)
+      const baseGeo = new THREE.BoxGeometry(0.14, 0.28, length);
+      const crownGeo = new THREE.BoxGeometry(0.24, 0.32, length);
+      [-1, 1].forEach((side) => {
+        const base = new THREE.Mesh(baseGeo, trimMat);
+        base.position.set(side * (width / 2 - 0.06), 0.14, zCenter);
+        group.add(base);
+
+        const crown = new THREE.Mesh(crownGeo, trimMat);
+        crown.position.set(side * (width / 2 - 0.11), height - 0.16, zCenter);
+        group.add(crown);
+
+        if (hasWainscot) {
+          const rail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, length), trimMat);
+          rail.position.set(side * (width / 2 - 0.05), 1.05, zCenter);
+          group.add(rail);
+        }
+
+        // Lesene / Pilastri architettonici lungo le pareti
+        const pilasterCount = 3;
+        for (let i = 0; i <= pilasterCount; i++) {
+          const pz = zStart - (i / pilasterCount) * length;
+          const pilaster = new THREE.Mesh(new THREE.BoxGeometry(0.26, height - 0.3, 0.42), trimMat);
+          pilaster.position.set(side * (width / 2 - 0.12), height / 2, pz);
+          pilaster.castShadow = true;
+          pilaster.receiveShadow = true;
+          group.add(pilaster);
+        }
+      });
+
+      // Soffitto
+      const ceilMat = new THREE.MeshStandardMaterial({ color: ceilingColor, roughness: 0.85, metalness: 0.02 });
+      const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(width, length), ceilMat);
+      ceiling.rotation.x = Math.PI / 2;
+      ceiling.position.set(0, height, zCenter);
+      group.add(ceiling);
+
+      // Cassettoni sul soffitto
+      if (coffered) {
+        const beamMat = new THREE.MeshStandardMaterial({ color: ceilingColor, roughness: 0.72 });
+        for (let z = zStart - 3; z > zEnd + 1; z -= 4.5) {
+          const beam = new THREE.Mesh(new THREE.BoxGeometry(width, 0.36, 0.42), beamMat);
+          beam.position.set(0, height - 0.18, z);
+          group.add(beam);
+        }
+        [-width * 0.25, width * 0.25].forEach((bx) => {
+          const lBeam = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.32, length), beamMat);
+          lBeam.position.set(bx, height - 0.16, zCenter);
+          group.add(lBeam);
+        });
+      }
+
+      // Lucernario con luce soffusa e raggi volumetrici sottili
+      if (hasSkylight) {
+        const skyW = width * 0.42;
+        const skyL = length * 0.46;
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(skyW + 0.5, 0.26, skyL + 0.5), trimMat);
+        frame.position.set(0, height - 0.12, zCenter);
+        group.add(frame);
+
+        const glass = new THREE.Mesh(
+          new THREE.PlaneGeometry(skyW, skyL),
+          new THREE.MeshBasicMaterial({ color: 0xfff8eb })
+        );
+        glass.rotation.x = Math.PI / 2;
+        glass.position.set(0, height - 0.26, zCenter);
+        group.add(glass);
+
+        // Fascio di luce volumetrico traslucido molto delicato
+        const shaftGeo = new THREE.ConeGeometry(skyW * 0.82, height * 0.92, 4, 1, true);
+        const shaftMat = new THREE.MeshBasicMaterial({
+          color: 0xfff1d6,
+          transparent: true,
+          opacity: 0.026,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+        const shaft = new THREE.Mesh(shaftGeo, shaftMat);
+        shaft.position.set(0, height * 0.52, zCenter);
+        shaft.rotation.y = Math.PI / 4;
+        group.add(shaft);
+
+        const skyLight = new THREE.PointLight(0xfff3de, 18, 22, 1.5);
+        skyLight.position.set(0, height - 0.8, zCenter);
+        group.add(skyLight);
+      } else {
+        // Luce morbida da soffitto per le sale chiuse
+        const ambRoom = new THREE.PointLight(0xffeed6, 12, 22, 1.6);
+        ambRoom.position.set(0, height - 1.1, zCenter);
+        group.add(ambRoom);
+      }
+
+      // Binari elettrificati a soffitto per i faretti museali
+      [-width * 0.34, width * 0.34].forEach((tx) => {
+        const track = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, length - 2), matDarkTrim);
+        track.position.set(tx, height - 0.35, zCenter);
+        group.add(track);
+      });
+
+      scene.add(group);
+      return group;
+    }
+
+    // Costruzione Portale ad Arco 3D che collega due sale
+    function buildArchPortal({ zCenter, depth = 3.0, wallWidth = 15, wallHeight = 8.6, archWidth = 5.0, archHeight = 5.4, stoneMat }) {
+      const portalGroup = new THREE.Group();
+      const sideW = (wallWidth - archWidth) / 2;
+
+      // Pilastri laterali del muro divisorio
+      [-1, 1].forEach((side) => {
+        const pier = new THREE.Mesh(new THREE.BoxGeometry(sideW, wallHeight, depth), stoneMat);
+        pier.position.set(side * (archWidth / 2 + sideW / 2), wallHeight / 2, zCenter);
+        pier.castShadow = true;
+        pier.receiveShadow = true;
+        portalGroup.add(pier);
+
+        // Mostra / Cornice in pietra attorno all'apertura
+        const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.32, archHeight, depth + 0.16), matStoneTrim);
+        jamb.position.set(side * (archWidth / 2 + 0.14), archHeight / 2, zCenter);
+        portalGroup.add(jamb);
+      });
+
+      // Architrave superiore
+      const lintelH = wallHeight - archHeight;
+      const lintel = new THREE.Mesh(new THREE.BoxGeometry(archWidth + 0.2, lintelH, depth), stoneMat);
+      lintel.position.set(0, archHeight + lintelH / 2, zCenter);
+      portalGroup.add(lintel);
+
+      // Cornice superiore + chiave di volta
+      const header = new THREE.Mesh(new THREE.BoxGeometry(archWidth + 0.85, 0.34, depth + 0.24), matStoneTrim);
+      header.position.set(0, archHeight + 0.15, zCenter);
+      portalGroup.add(header);
+
+      const keystone = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.56, depth + 0.34), matStoneTrim);
+      keystone.position.set(0, archHeight + 0.22, zCenter);
+      portalGroup.add(keystone);
+
+      // Pavimento di soglia in marmo lucido dentro il portale
+      const threshold = new THREE.Mesh(
+        new THREE.PlaneGeometry(archWidth + 0.2, depth + 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x262422, roughness: 0.2, metalness: 0.08 })
+      );
+      threshold.rotation.x = -Math.PI / 2;
+      threshold.position.set(0, 0.005, zCenter);
+      portalGroup.add(threshold);
+
+      // Luce soffusa interna al portale
+      const portalLight = new THREE.PointLight(0xffe7c4, 6, 9, 1.8);
+      portalLight.position.set(0, archHeight - 0.3, zCenter);
+      portalGroup.add(portalLight);
+
+      scene.add(portalGroup);
+    }
+
+    loadingStep(45, 'Edificazione delle quattro sale monumentali...');
+
+    // SALA I — Atrio Monumentale
+    buildRoom({
+      zStart: 12, zEnd: -12, width: 14, height: 8.5,
+      floorMat: new THREE.MeshStandardMaterial({ map: calacattaFloor.map, roughnessMap: calacattaFloor.roughnessMap, bumpMap: calacattaFloor.bumpMap, bumpScale: 0.015, roughness: 0.24, metalness: 0.05 }),
+      wallMat: new THREE.MeshStandardMaterial({ map: wallTravertine.map, bumpMap: wallTravertine.bumpMap, bumpScale: 0.02, roughness: 0.82 }),
+      ceilingColor: 0xe6dfd3,
+      trimMat: matStoneTrim,
+      hasSkylight: true,
+      coffered: true
+    });
+
+    // Parete d'ingresso alle spalle del visitatore (z = 12)
+    const entryBackWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(14, 8.5),
+      new THREE.MeshStandardMaterial({ map: wallTravertine.map, roughness: 0.85 })
+    );
+    entryBackWall.position.set(0, 4.25, 12);
+    scene.add(entryBackWall);
+
+    // PORTALE I -> II
+    buildArchPortal({ zCenter: -13.5, depth: 3.0, wallWidth: 14.5, wallHeight: 8.5, archWidth: 5.2, archHeight: 5.6, stoneMat: new THREE.MeshStandardMaterial({ map: wallTravertine.map, roughness: 0.78 }) });
+
+    // SALA II — Sala del Rinascimento e del Chiaroscuro
+    buildRoom({
+      zStart: -15, zEnd: -39, width: 13, height: 7.8,
+      floorMat: new THREE.MeshStandardMaterial({ map: darkMarbleFloor.map, roughnessMap: darkMarbleFloor.roughnessMap, bumpMap: darkMarbleFloor.bumpMap, bumpScale: 0.014, roughness: 0.22, metalness: 0.08 }),
+      wallMat: new THREE.MeshStandardMaterial({ map: wallCharcoal.map, bumpMap: wallCharcoal.bumpMap, bumpScale: 0.022, roughness: 0.86 }),
+      ceilingColor: 0x221f1c,
+      trimMat: matDarkTrim,
+      hasSkylight: false,
+      coffered: true,
+      hasWainscot: true
+    });
+
+    // PORTALE II -> III
+    buildArchPortal({ zCenter: -40.5, depth: 3.0, wallWidth: 14.0, wallHeight: 7.8, archWidth: 5.0, archHeight: 5.4, stoneMat: new THREE.MeshStandardMaterial({ map: wallCharcoal.map, roughness: 0.82 }) });
+
+    // SALA III — Galleria dell'Ottocento e della Luce
+    buildRoom({
+      zStart: -42, zEnd: -66, width: 13.5, height: 7.8,
+      floorMat: new THREE.MeshStandardMaterial({ map: parquetFloor.map, roughnessMap: parquetFloor.roughnessMap, bumpMap: parquetFloor.bumpMap, bumpScale: 0.018, roughness: 0.36, metalness: 0.04 }),
+      wallMat: new THREE.MeshStandardMaterial({ map: wallBurgundy.map, bumpMap: wallBurgundy.bumpMap, bumpScale: 0.02, roughness: 0.84 }),
+      ceilingColor: 0xebe3d5,
+      trimMat: matStoneTrim,
+      hasSkylight: true,
+      coffered: false,
+      hasWainscot: true
+    });
+
+    // Panca museale in pelle scura al centro della Sala III
+    function buildMuseumBench(zPos) {
+      const bench = new THREE.Group();
+      const leatherMat = new THREE.MeshStandardMaterial({ color: 0x1b1715, roughness: 0.42, metalness: 0.08 });
+      const seat = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.18, 1.05), leatherMat);
+      seat.position.set(0, 0.52, 0);
+      seat.castShadow = true;
+      seat.receiveShadow = true;
+      bench.add(seat);
+
+      // Cuciture trapuntate
+      for (let x = -0.9; x <= 0.91; x += 0.6) {
+        const seam = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.19, 1.06), matDarkTrim);
+        seam.position.set(x, 0.52, 0);
+        bench.add(seam);
+      }
+
+      // Gambe in ottone satinato
+      [[-1.1, -0.4], [1.1, -0.4], [-1.1, 0.4], [1.1, 0.4]].forEach(([lx, lz]) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.026, 0.46, 12), matBrass);
+        leg.position.set(lx, 0.23, lz);
+        leg.castShadow = true;
+        bench.add(leg);
+      });
+
+      bench.position.set(0, 0, zPos);
+      scene.add(bench);
+    }
+    buildMuseumBench(-54.0);
+
+    // PORTALE III -> IV
+    buildArchPortal({ zCenter: -67.5, depth: 3.0, wallWidth: 15.2, wallHeight: 8.6, archWidth: 5.4, archHeight: 5.7, stoneMat: new THREE.MeshStandardMaterial({ map: wallConcrete.map, roughness: 0.86 }) });
+
+    // SALA IV — Padiglione Contemporaneo
+    buildRoom({
+      zStart: -69, zEnd: -93, width: 15, height: 8.6,
+      floorMat: new THREE.MeshStandardMaterial({ map: travertineFloor.map, roughnessMap: travertineFloor.roughnessMap, bumpMap: travertineFloor.bumpMap, bumpScale: 0.012, roughness: 0.34, metalness: 0.04 }),
+      wallMat: new THREE.MeshStandardMaterial({ map: wallConcrete.map, bumpMap: wallConcrete.bumpMap, bumpScale: 0.028, roughness: 0.88 }),
+      ceilingColor: 0x3b3b3a,
+      trimMat: matDarkTrim,
+      hasSkylight: true,
+      coffered: false
+    });
+
+    // Parete di fondo della Sala IV (z = -93)
+    const endWall = new THREE.Mesh(
+      new THREE.PlaneGeometry(15, 8.6),
+      new THREE.MeshStandardMaterial({ map: wallConcrete.map, bumpMap: wallConcrete.bumpMap, bumpScale: 0.028, roughness: 0.88 })
+    );
+    endWall.position.set(0, 4.3, -93);
+    endWall.receiveShadow = true;
+    scene.add(endWall);
+
+    // =========================================================================
+    // 5. ALLESTIMENTO DELLE OPERE (DIPINTI, CORNICI, TARGHE, SCULTURE E FARETTI)
+    // =========================================================================
+    loadingStep(70, 'Allestimento dipinti, sculture e illuminazione...');
+
+    const interactiveMeshes = [];
+    const artworkObjects = new Map();
+    let kineticSculptureRef = null;
+
+    // Crea una targhetta museale in ottone con testo inciso
+    function createBrassPlaque(title, artist, year) {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 160;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#181614';
+      ctx.fillRect(0, 0, 512, 160);
+      ctx.strokeStyle = '#c9a86a';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(8, 8, 496, 144);
+
+      ctx.fillStyle = '#e8d2a2';
+      ctx.font = '600 26px Georgia, serif';
+      ctx.fillText(title.slice(0, 32), 26, 62);
+
+      ctx.fillStyle = '#b9afa0';
+      ctx.font = '400 20px Inter, sans-serif';
+      ctx.fillText(`${artist.slice(0, 30)} • ${year}`, 26, 108);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      const mesh = new THREE.Mesh(
+        new THREE.BoxGeometry(0.46, 0.145, 0.02),
+        new THREE.MeshStandardMaterial({ map: tex, roughness: 0.35, metalness: 0.45 })
+      );
+      return mesh;
+    }
+
+    // Faretto museale fisico sul binario + SpotLight reale
+    function addGallerySpotlight(targetPos, wallNormal, ceilingY = 7.45) {
+      const lightPos = new THREE.Vector3(
+        targetPos.x + wallNormal.x * 2.35,
+        ceilingY,
+        targetPos.z + wallNormal.z * 2.35
+      );
+
+      // Corpo faretto cilindrico
+      const fixture = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.09, 0.24, 14), matDarkTrim);
+      fixture.position.copy(lightPos);
+      fixture.lookAt(targetPos);
+      fixture.rotateX(Math.PI / 2);
+      scene.add(fixture);
+
+      // SpotLight morbida sull'opera
+      const spot = new THREE.SpotLight(0xfff1dc, 26, 13, Math.PI / 5.2, 0.65, 1.45);
+      spot.position.copy(lightPos);
+      spot.target.position.copy(targetPos);
+      spot.castShadow = false; // Ottimizzazione per 60fps fluidi su tutti i dispositivi
+      scene.add(spot);
+      scene.add(spot.target);
+
+      return spot;
+    }
+
+    // Costruzione Dipinto con cornice realistica e caricamento immagine HD + fallback pittorico
+    function buildPainting(art) {
+      const group = new THREE.Group();
+      const [w, h] = art.size;
+
+      // 1. Genera immediatamente il dipinto procedurale pittorico ad alta risoluzione
+      const procCanvas = generatePainterlyCanvas(art.proceduralStyle, 768, Math.round(768 * (h / w)));
+      const paintingTex = new THREE.CanvasTexture(procCanvas);
+      paintingTex.colorSpace = THREE.SRGBColorSpace;
+      paintingTex.anisotropy = 8;
+
+      const canvasMat = new THREE.MeshStandardMaterial({
+        map: paintingTex,
+        bumpMap: canvasBump,
+        bumpScale: 0.008,
+        roughness: 0.42,
+        metalness: 0.04
+      });
+
+      // 2. Se esiste un URL Wikimedia public-domain, caricalo in modo asincrono con CORS sicuro
+      if (art.imageUrl) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const hiRes = document.createElement('canvas');
+            hiRes.width = 1024;
+            hiRes.height = Math.round(1024 * (h / w));
+            const ctx = hiRes.getContext('2d');
+            // Ritaglio cover proporzionato
+            const imgRatio = img.width / img.height;
+            const targetRatio = hiRes.width / hiRes.height;
+            let sx = 0, sy = 0, sw = img.width, sh = img.height;
+            if (imgRatio > targetRatio) {
+              sw = img.height * targetRatio;
+              sx = (img.width - sw) / 2;
+            } else {
+              sh = img.width / targetRatio;
+              sy = (img.height - sh) / 2;
+            }
+            ctx.drawImage(img, sx, sy, sw, sh, 0, 0, hiRes.width, hiRes.height);
+            const realTex = new THREE.CanvasTexture(hiRes);
+            realTex.colorSpace = THREE.SRGBColorSpace;
+            realTex.anisotropy = 8;
+            canvasMat.map = realTex;
+            canvasMat.needsUpdate = true;
+          } catch (e) {
+            // Mantiene silenziosamente il dipinto pittorico procedurale
+          }
+        };
+        img.src = art.imageUrl;
+      }
+
+      // Tela fisica
+      const canvasMesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), canvasMat);
+      canvasMesh.position.z = 0.06;
+      canvasMesh.userData.artworkId = art.id;
+      group.add(canvasMesh);
+      interactiveMeshes.push(canvasMesh);
+
+      // Cornice multi-livello (classica dorata o shadow-box contemporanea)
+      const frameMat = art.frameStyle === 'ornate-gold' ? matGildedFrame : matShadowFrame;
+      const border = art.frameStyle === 'ornate-gold' ? 0.14 : 0.065;
+      const depth = art.frameStyle === 'ornate-gold' ? 0.13 : 0.095;
+
+      const topBar = new THREE.Mesh(new THREE.BoxGeometry(w + border * 2, border, depth), frameMat);
+      topBar.position.set(0, h / 2 + border / 2, depth / 2);
+      const botBar = new THREE.Mesh(new THREE.BoxGeometry(w + border * 2, border, depth), frameMat);
+      botBar.position.set(0, -h / 2 - border / 2, depth / 2);
+      const leftBar = new THREE.Mesh(new THREE.BoxGeometry(border, h, depth), frameMat);
+      leftBar.position.set(-w / 2 - border / 2, 0, depth / 2);
+      const rightBar = new THREE.Mesh(new THREE.BoxGeometry(border, h, depth), frameMat);
+      rightBar.position.set(w / 2 + border / 2, 0, depth / 2);
+
+      [topBar, botBar, leftBar, rightBar].forEach((b) => {
+        b.castShadow = true;
+        b.userData.artworkId = art.id;
+        group.add(b);
+        interactiveMeshes.push(b);
+      });
+
+      // Filetto interno dorato per cornici classiche
+      if (art.frameStyle === 'ornate-gold') {
+        const innerMat = new THREE.MeshStandardMaterial({ color: 0x261d14, roughness: 0.5 });
+        const backing = new THREE.Mesh(new THREE.BoxGeometry(w + 0.05, h + 0.05, 0.05), innerMat);
+        backing.position.z = 0.03;
+        group.add(backing);
+      }
+
+      // Targhetta in ottone accanto/sotto il dipinto
+      const plaque = createBrassPlaque(art.title, art.artist, art.year);
+      plaque.position.set(w / 2 - 0.25, -h / 2 - border - 0.22, 0.015);
+      group.add(plaque);
+
+      group.position.set(...art.position);
+      group.rotation.y = art.rotationY;
+      scene.add(group);
+
+      // Illuminazione dedicata
+      const worldCenter = new THREE.Vector3(...art.position);
+      const normalVec = new THREE.Vector3(...art.normal);
+      const ceilingH = art.roomIdx === 3 ? 8.2 : 7.45;
+      const spot = addGallerySpotlight(worldCenter, normalVec, ceilingH);
+
+      artworkObjects.set(art.id, { data: art, group, spot, baseIntensity: spot.intensity, worldCenter });
+    }
+
+    // Costruzione Sculture 3D con basamenti museali e materiali PBR realistici
+    function buildSculpture(art) {
+      const group = new THREE.Group();
+      const [px, py, pz] = art.position;
+
+      // Basamento architettonico
+      const plinthH = art.sculptureStyle === 'contemporary-kinetic' ? 0.85 : 1.18;
+      const plinthMat = art.sculptureStyle === 'neoclassical-marble'
+        ? new THREE.MeshStandardMaterial({ map: darkMarbleFloor.map, roughness: 0.18, metalness: 0.1 })
+        : art.sculptureStyle === 'patinated-bronze'
+          ? new THREE.MeshStandardMaterial({ map: wallTravertine.map, roughness: 0.72 })
+          : new THREE.MeshStandardMaterial({ map: wallConcrete.map, roughness: 0.8 });
+
+      const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.15, plinthH, 1.15), plinthMat);
+      plinth.position.y = plinthH / 2;
+      plinth.castShadow = true;
+      plinth.receiveShadow = true;
+      group.add(plinth);
+
+      // Modanatura superiore in ottone
+      const trim = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.05, 1.22), matBrass);
+      trim.position.y = plinthH + 0.025;
+      group.add(trim);
+
+      // Targhetta sul basamento
+      const plaque = createBrassPlaque(art.title, art.artist, art.year);
+      plaque.position.set(0, plinthH - 0.24, 0.585);
+      group.add(plaque);
+
+      // Geometria scultorea ad alta definizione
+      let sculptMesh;
+      if (art.sculptureStyle === 'neoclassical-marble') {
+        const marbleMat = new THREE.MeshPhysicalMaterial({
+          map: calacattaFloor.map,
+          color: 0xf9f6f0,
+          roughness: 0.16,
+          metalness: 0.02,
+          clearcoat: 0.35,
+          clearcoatRoughness: 0.2
+        });
+        const geo = new THREE.TorusKnotGeometry(0.42, 0.145, 180, 36, 2, 3);
+        sculptMesh = new THREE.Mesh(geo, marbleMat);
+        sculptMesh.position.y = plinthH + 0.86;
+        sculptMesh.scale.set(0.88, 1.38, 0.88);
+        sculptMesh.castShadow = true;
+        group.add(sculptMesh);
+      } else if (art.sculptureStyle === 'patinated-bronze') {
+        const bronzeMat = new THREE.MeshStandardMaterial({
+          color: 0x5c422a,
+          roughness: 0.28,
+          metalness: 0.88
+        });
+        const sculptGroup = new THREE.Group();
+        // Forma busto/torso classico tornito + drappeggio astratto
+        const pts = [
+          new THREE.Vector2(0.01, 0), new THREE.Vector2(0.24, 0.05),
+          new THREE.Vector2(0.14, 0.18), new THREE.Vector2(0.32, 0.42),
+          new THREE.Vector2(0.26, 0.65), new THREE.Vector2(0.11, 0.74),
+          new THREE.Vector2(0.18, 0.94), new THREE.Vector2(0.14, 1.12),
+          new THREE.Vector2(0.01, 1.16)
+        ];
+        const torso = new THREE.Mesh(new THREE.LatheGeometry(pts, 48), bronzeMat);
+        torso.castShadow = true;
+        sculptGroup.add(torso);
+
+        const drape = new THREE.Mesh(new THREE.TorusGeometry(0.29, 0.055, 24, 60), bronzeMat);
+        drape.position.y = 0.52;
+        drape.rotation.set(0.65, 0.3, 0.4);
+        sculptGroup.add(drape);
+
+        sculptGroup.position.y = plinthH + 0.05;
+        sculptMesh = torso;
+        group.add(sculptGroup);
+      } else {
+        // Scultura cinetica contemporanea: Bronzo spazzolato + Sfera di ossidiana
+        const kineticGroup = new THREE.Group();
+        const brushedBronze = new THREE.MeshStandardMaterial({
+          color: 0xc8a15e,
+          roughness: 0.24,
+          metalness: 0.94
+        });
+        const obsidianMat = new THREE.MeshPhysicalMaterial({
+          color: 0x090a0d,
+          roughness: 0.04,
+          metalness: 0.25,
+          clearcoat: 1.0
+        });
+
+        const ring1 = new THREE.Mesh(new THREE.TorusKnotGeometry(0.56, 0.085, 180, 32, 3, 4), brushedBronze);
+        ring1.castShadow = true;
+        kineticGroup.add(ring1);
+
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.26, 48, 48), obsidianMat);
+        kineticGroup.add(core);
+
+        kineticGroup.position.y = plinthH + 1.05;
+        kineticSculptureRef = kineticGroup;
+        sculptMesh = ring1;
+        group.add(kineticGroup);
+      }
+
+      // Colonnine museali di protezione con cordone in velluto per la scultura centrale di Sala II
+      if (art.sculptureStyle === 'patinated-bronze') {
+        const stanchionDist = 1.25;
+        const corners = [
+          [-stanchionDist, -stanchionDist], [stanchionDist, -stanchionDist],
+          [stanchionDist, stanchionDist], [-stanchionDist, stanchionDist]
+        ];
+        corners.forEach(([cx, cz]) => {
+          const post = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.025, 0.85, 12), matBrass);
+          post.position.set(cx, 0.425, cz);
+          group.add(post);
+          const base = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.12, 0.04, 16), matBrass);
+          base.position.set(cx, 0.02, cz);
+          group.add(base);
+        });
+      }
+
+      // Rende cliccabile tutta la scultura
+      group.traverse((child) => {
+        if (child.isMesh) {
+          child.userData.artworkId = art.id;
+          interactiveMeshes.push(child);
+        }
+      });
+
+      group.position.set(px, py, pz);
+      scene.add(group);
+
+      // Spotlight zenitale sulla scultura
+      const spot = new THREE.SpotLight(0xfff2dc, 34, 16, Math.PI / 5.5, 0.6, 1.3);
+      spot.position.set(px, 7.6, pz + 2.2);
+      spot.target.position.set(px, 1.9, pz);
+      scene.add(spot);
+      scene.add(spot.target);
+
+      const worldCenter = new THREE.Vector3(px, 1.9, pz);
+      artworkObjects.set(art.id, { data: art, group, spot, baseIntensity: spot.intensity, worldCenter });
+    }
+
+    // Istanzia tutte le 12 opere
+    ARTWORKS_DATA.forEach((art) => {
+      if (art.type === 'painting') buildPainting(art);
+      else buildSculpture(art);
+    });
+
+    // Pulviscolo atmosferico nei fasci di luce (sottilissimo e poetico)
+    const dustCount = 260;
+    const dustGeo = new THREE.BufferGeometry();
+    const dustPos = new Float32Array(dustCount * 3);
+    for (let i = 0; i < dustCount; i++) {
+      dustPos[i * 3] = (Math.random() - 0.5) * 11;
+      dustPos[i * 3 + 1] = 0.8 + Math.random() * 6.5;
+      dustPos[i * 3 + 2] = 8 - Math.random() * 98;
+    }
+    dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+    const dustMat = new THREE.PointsMaterial({
+      color: 0xffe8c2,
+      size: 0.032,
+      transparent: true,
+      opacity: 0.28,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const dustPoints = new THREE.Points(dustGeo, dustMat);
+    scene.add(dustPoints);
+
+    // =========================================================================
+    // 6. PERCORSO CINEMATOGRAFICO SU SPLINE (CatmullRomCurve3)
+    // =========================================================================
+    const cameraPath = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 2.35, 9.2),     // Ingresso Atrio
+      new THREE.Vector3(1.6, 2.2, 2.8),    // Aggira scultura Atrio
+      new THREE.Vector3(0.4, 2.25, -7.0),  // Verso Portale I->II
+      new THREE.Vector3(0.0, 2.25, -14.2), // Attraversa Portale I->II
+      new THREE.Vector3(1.5, 2.3, -21.0),  // Osserva Caravaggio (sx)
+      new THREE.Vector3(-1.6, 2.3, -26.8), // Osserva Dama (dx) e Busto
+      new THREE.Vector3(1.5, 2.3, -33.2),  // Osserva Natura Morta (sx)
+      new THREE.Vector3(0.0, 2.25, -40.5), // Attraversa Portale II->III
+      new THREE.Vector3(-1.5, 2.3, -48.2), // Osserva Venezia (dx)
+      new THREE.Vector3(1.6, 2.3, -54.0),  // Osserva Ninfee (sx) e Panca
+      new THREE.Vector3(-1.4, 2.3, -60.0), // Osserva Alpi (dx)
+      new THREE.Vector3(0.0, 2.25, -67.5), // Attraversa Portale III->IV
+      new THREE.Vector3(1.6, 2.35, -75.8), // Osserva Spazio Assoluto (sx)
+      new THREE.Vector3(-1.8, 2.35, -81.2),// Osserva Geometria (dx) e Torsione
+      new THREE.Vector3(0.0, 2.45, -87.4)  // Arrivo davanti al Polittico Finale
+    ], false, 'catmullrom', 0.45);
+
+    const lookAtPath = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0, 2.15, -2.5),    // Guarda Scultura Atrio
+      new THREE.Vector3(-0.3, 2.15, -5.5),
+      new THREE.Vector3(0.0, 2.3, -16.5),  // Allineato al Portale I->II
+      new THREE.Vector3(-0.6, 2.45, -21.5),
+      new THREE.Vector3(-3.2, 2.55, -23.5),// Sguardo verso Caravaggio
+      new THREE.Vector3(2.8, 2.5, -27.2),  // Sguardo verso Dama
+      new THREE.Vector3(-2.6, 2.5, -34.2), // Sguardo verso Natura Morta
+      new THREE.Vector3(0.0, 2.3, -44.0),  // Allineato al Portale II->III
+      new THREE.Vector3(3.2, 2.5, -49.5),  // Sguardo verso Venezia
+      new THREE.Vector3(-3.0, 2.5, -55.0), // Sguardo verso Ninfee
+      new THREE.Vector3(2.6, 2.5, -61.2),  // Sguardo verso Alpi
+      new THREE.Vector3(0.0, 2.35, -71.5), // Allineato al Portale III->IV
+      new THREE.Vector3(-3.2, 2.6, -77.2), // Sguardo verso Spazio Assoluto
+      new THREE.Vector3(2.2, 2.45, -82.5), // Sguardo verso Geometria e Scultura
+      new THREE.Vector3(0.0, 2.8, -92.8)   // Contemplazione Polittico Finale
+    ], false, 'catmullrom', 0.45);
+
+    // =========================================================================
+    // 7. STATO NAVIGAZIONE, PARALLASSE, RAYCASTING E MODALITÀ ISPEZIONE
+    // =========================================================================
+    let targetProgress = 0.0;
+    let currentProgress = 0.0;
+    let mouseNDC = new THREE.Vector2(0, 0);
+    let smoothMouse = new THREE.Vector2(0, 0);
+
+    let isInspecting = false;
+    let activeArtwork = null;
+    let hoveredArtworkId = null;
+    let nearestArtworkId = null;
+
+    // Variabili camera in modalità ispezione
+    const inspectCamGoal = new THREE.Vector3();
+    const inspectLookGoal = new THREE.Vector3();
+    const currentCamPos = new THREE.Vector3();
+    const currentLookPos = new THREE.Vector3();
+    let inspectZoom = 0.35; // 0 = lontano, 1 = vicinissimo
+    let inspectPanX = 0;
+    let inspectPanY = 0;
+    let isDraggingInspect = false;
+    let lastPointer = { x: 0, y: 0 };
+
+    // Inizializza posizione camera
+    cameraPath.getPointAt(0, currentCamPos);
+    lookAtPath.getPointAt(0, currentLookPos);
+    camera.position.copy(currentCamPos);
+    camera.lookAt(currentLookPos);
+
+    // Elementi UI
+    const heroOverlay = document.getElementById('hero-overlay');
+    const hudRoomNum = document.getElementById('hud-room-num');
+    const hudRoomName = document.getElementById('hud-room-name');
+    const railFill = document.getElementById('rail-progress-fill');
+    const railButtons = document.querySelectorAll('.room-rail-btn');
+    const tooltip = document.getElementById('artwork-tooltip');
+    const tooltipTitle = document.getElementById('tooltip-title');
+    const proximityPill = document.getElementById('proximity-pill');
+    const proxArtist = document.getElementById('prox-artist');
+    const proxTitle = document.getElementById('prox-title');
+    const bottomHud = document.getElementById('bottom-hud');
+    const inspectionPanel = document.getElementById('inspection-panel');
+    const inspectionControls = document.getElementById('inspection-controls');
+    const zoomSlider = document.getElementById('inspect-zoom-slider');
+
+    // Calcola la posizione ideale di ispezione per un'opera (spostata leggermente per bilanciare il pannello laterale)
+    function computeInspectCamera(art, focal = null) {
+      const obj = artworkObjects.get(art.id);
+      if (art.type === 'sculpture') {
+        if (focal) {
+          inspectCamGoal.set(
+            art.position[0] + focal.offset[0],
+            focal.offset[1],
+            art.position[2] + focal.offset[2]
+          );
+          inspectLookGoal.set(...focal.lookAt);
+        } else {
+          const distScale = 1.25 - inspectZoom * 0.58;
+          const angle = inspectPanX * 1.4;
+          const baseZ = art.inspectOffset[2] * distScale;
+          inspectCamGoal.set(
+            art.position[0] + Math.sin(angle) * baseZ + 0.55,
+            art.inspectOffset[1] + inspectPanY * 0.7,
+            art.position[2] + Math.cos(angle) * baseZ
+          );
+          inspectLookGoal.set(art.inspectLookAt[0] + 0.35, art.inspectLookAt[1], art.inspectLookAt[2]);
+        }
+      } else {
+        // Dipinto su parete
+        const normal = new THREE.Vector3(...art.normal);
+        const right = new THREE.Vector3(0, 1, 0).cross(normal).normalize();
+        const center = obj.worldCenter.clone();
+
+        if (focal) {
+          const off = new THREE.Vector3(...focal.offset);
+          const lOff = new THREE.Vector3(...focal.lookAtOffset);
+          inspectCamGoal.copy(center).add(off);
+          inspectLookGoal.copy(center).add(lOff);
+        } else {
+          const maxDim = Math.max(art.size[0], art.size[1]);
+          const baseDist = Math.max(2.3, maxDim * 1.18);
+          const dist = baseDist * (1.25 - inspectZoom * 0.62);
+          // Piccolo offset laterale su schermi larghi per centrare l'opera a sinistra del pannello
+          const panelShift = window.innerWidth >= 768 ? 0.52 : 0;
+
+          inspectCamGoal.copy(center)
+            .addScaledVector(normal, dist)
+            .addScaledVector(right, panelShift + inspectPanX * 0.9);
+          inspectCamGoal.y += inspectPanY * 0.65;
+
+          inspectLookGoal.copy(center)
+            .addScaledVector(right, panelShift * 0.75 + inspectPanX * 0.55);
+          inspectLookGoal.y += inspectPanY * 0.45;
+        }
+      }
+    }
+
+    // Entra in modalità Ispezione & Analisi
+    function enterInspection(artworkId) {
+      const entry = artworkObjects.get(artworkId);
+      if (!entry) return;
+
+      isInspecting = true;
+      activeArtwork = entry.data;
+      inspectZoom = 0.35;
+      inspectPanX = 0;
+      inspectPanY = 0;
+      zoomSlider.value = '35';
+
+      computeInspectCamera(activeArtwork);
+
+      // Popola pannello editoriale
+      document.getElementById('panel-room-badge').textContent = activeArtwork.roomLabel;
+      document.getElementById('panel-title').textContent = activeArtwork.title;
+      document.getElementById('panel-artist-year').textContent = `${activeArtwork.artist} — ${activeArtwork.year}`;
+      document.getElementById('panel-technique').textContent = activeArtwork.technique;
+      document.getElementById('panel-dimensions').textContent = activeArtwork.dimensions;
+
+      // Imposta tab attiva su Storia
+      setAnalysisTab('storia');
+
+      // Genera bottoni Punti Focali
+      const focalContainer = document.getElementById('panel-focal-buttons');
+      const focalNoteBox = document.getElementById('focal-note-box');
+      focalContainer.innerHTML = '';
+      focalNoteBox.classList.add('hidden');
+
+      activeArtwork.focalPoints.forEach((fp) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-3 py-1.5 rounded-full text-[11px] border border-white/15 bg-white/[0.04] hover:border-[#c9a86a] hover:text-[#e4cc9a] text-neutral-200 transition-all cursor-pointer';
+        btn.textContent = fp.label;
+        btn.addEventListener('click', () => {
+          focalContainer.querySelectorAll('button').forEach((b) => b.classList.remove('border-[#c9a86a]', 'bg-[#c9a86a]/20', 'text-[#e4cc9a]'));
+          btn.classList.add('border-[#c9a86a]', 'bg-[#c9a86a]/20', 'text-[#e4cc9a]');
+          computeInspectCamera(activeArtwork, fp);
+          focalNoteBox.textContent = fp.note;
+          focalNoteBox.classList.remove('hidden');
+        });
+        focalContainer.appendChild(btn);
+      });
+
+      // Aggiorna UI
+      container.classList.add('inspecting');
+      container.classList.remove('hovering-artwork');
+      tooltip.classList.remove('visible');
+      bottomHud.classList.add('opacity-0', 'pointer-events-none');
+      heroOverlay.style.opacity = '0';
+      inspectionPanel.classList.add('open');
+      inspectionControls.classList.remove('hidden');
+      inspectionControls.classList.add('flex');
+    }
+
+    function exitInspection() {
+      if (!isInspecting) return;
+      isInspecting = false;
+      activeArtwork = null;
+      container.classList.remove('inspecting');
+      inspectionPanel.classList.remove('open');
+      inspectionControls.classList.add('hidden');
+      inspectionControls.classList.remove('flex');
+      bottomHud.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function setAnalysisTab(tabKey) {
+      if (!activeArtwork) return;
+      document.querySelectorAll('.analysis-tab').forEach((btn) => {
+        const active = btn.dataset.tab === tabKey;
+        btn.classList.toggle('border-[#c9a86a]', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('font-medium', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-neutral-400', !active);
+      });
+      document.getElementById('panel-tab-content').textContent = activeArtwork.tabs[tabKey] || '';
+    }
+
+    document.querySelectorAll('.analysis-tab').forEach((btn) => {
+      btn.addEventListener('click', () => setAnalysisTab(btn.dataset.tab));
+    });
+
+    document.getElementById('btn-exit-inspect').addEventListener('click', exitInspection);
+    document.getElementById('btn-close-panel').addEventListener('click', exitInspection);
+    document.getElementById('btn-reset-view').addEventListener('click', () => {
+      if (!activeArtwork) return;
+      inspectZoom = 0.35;
+      inspectPanX = 0;
+      inspectPanY = 0;
+      zoomSlider.value = '35';
+      document.getElementById('focal-note-box').classList.add('hidden');
+      document.querySelectorAll('#panel-focal-buttons button').forEach((b) => b.classList.remove('border-[#c9a86a]', 'bg-[#c9a86a]/20', 'text-[#e4cc9a]'));
+      computeInspectCamera(activeArtwork);
+    });
+
+    zoomSlider.addEventListener('input', (e) => {
+      if (!activeArtwork) return;
+      inspectZoom = parseFloat(e.target.value) / 100;
+      computeInspectCamera(activeArtwork);
+    });
+
+    document.getElementById('btn-analyze-nearest').addEventListener('click', () => {
+      if (nearestArtworkId) enterInspection(nearestArtworkId);
+    });
+
+    // Navigazione rapida tra le sale (Rail laterale & Modale Mappa)
+    function jumpToRoom(roomIdx) {
+      const room = ROOMS[roomIdx];
+      if (!room) return;
+      if (isInspecting) exitInspection();
+      targetProgress = room.progress;
+    }
+
+    railButtons.forEach((btn) => {
+      btn.addEventListener('click', () => jumpToRoom(parseInt(btn.dataset.room, 10)));
+    });
+
+    const mapModal = document.getElementById('map-modal');
+    document.getElementById('btn-map').addEventListener('click', () => {
+      mapModal.classList.remove('hidden');
+      mapModal.classList.add('flex');
+    });
+    document.getElementById('btn-close-map').addEventListener('click', () => {
+      mapModal.classList.add('hidden');
+      mapModal.classList.remove('flex');
+    });
+    mapModal.addEventListener('click', (e) => {
+      if (e.target === mapModal) {
+        mapModal.classList.add('hidden');
+        mapModal.classList.remove('flex');
+      }
+    });
+    document.querySelectorAll('[data-jump-room]').forEach((card) => {
+      card.addEventListener('click', () => {
+        jumpToRoom(parseInt(card.dataset.jumpRoom, 10));
+        mapModal.classList.add('hidden');
+        mapModal.classList.remove('flex');
+      });
+    });
+
+    // =========================================================================
+    // 8. EVENTI INPUT (ROTELLA FLUIDA, TOUCH, TASTIERA, RAYCASTING)
+    // =========================================================================
+    const raycaster = new THREE.Raycaster();
+
+    window.addEventListener('wheel', (e) => {
+      // Non intercettare lo scroll dentro il pannello laterale di analisi
+      if (e.target.closest('#inspection-panel')) return;
+      e.preventDefault();
+
+      if (isInspecting && activeArtwork) {
+        inspectZoom = Math.min(1, Math.max(0, inspectZoom - e.deltaY * 0.0008));
+        zoomSlider.value = String(Math.round(inspectZoom * 100));
+        computeInspectCamera(activeArtwork);
+      } else {
+        const delta = Math.max(-120, Math.min(120, e.deltaY));
+        targetProgress = Math.min(1, Math.max(0, targetProgress + delta * 0.00034));
+      }
+    }, { passive: false });
+
+    // Supporto Touch per dispositivi mobili
+    let touchStartY = 0;
+    let touchStartX = 0;
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        touchStartY = e.touches[0].clientY;
+        touchStartX = e.touches[0].clientX;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length !== 1) return;
+      const dy = touchStartY - e.touches[0].clientY;
+      const dx = e.touches[0].clientX - touchStartX;
+      touchStartY = e.touches[0].clientY;
+      touchStartX = e.touches[0].clientX;
+
+      if (isInspecting && activeArtwork) {
+        inspectPanX = Math.max(-1, Math.min(1, inspectPanX - dx * 0.004));
+        inspectPanY = Math.max(-0.8, Math.min(0.8, inspectPanY + dy * 0.004));
+        computeInspectCamera(activeArtwork);
+      } else {
+        targetProgress = Math.min(1, Math.max(0, targetProgress + dy * 0.00085));
+      }
+    }, { passive: true });
+
+    // Tastiera (Frecce + ESC)
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (!mapModal.classList.contains('hidden')) {
+          mapModal.classList.add('hidden');
+          mapModal.classList.remove('flex');
+        } else if (isInspecting) {
+          exitInspection();
+        }
+      } else if (!isInspecting) {
+        if (e.key === 'ArrowDown' || e.key === 'PageDown' || e.key === ' ') {
+          targetProgress = Math.min(1, targetProgress + 0.032);
+        } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+          targetProgress = Math.max(0, targetProgress - 0.032);
+        }
+      }
+    });
+
+    // Mouse move (parallasse + hover opere + drag in ispezione)
+    container.addEventListener('pointerdown', (e) => {
+      if (isInspecting) {
+        isDraggingInspect = true;
+        lastPointer = { x: e.clientX, y: e.clientY };
+      }
+    });
+
+    window.addEventListener('pointerup', () => {
+      isDraggingInspect = false;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      mouseNDC.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      if (isInspecting && isDraggingInspect && activeArtwork) {
+        const dx = e.clientX - lastPointer.x;
+        const dy = e.clientY - lastPointer.y;
+        lastPointer = { x: e.clientX, y: e.clientY };
+        inspectPanX = Math.max(-1.1, Math.min(1.1, inspectPanX - dx * 0.0035));
+        inspectPanY = Math.max(-0.85, Math.min(0.85, inspectPanY + dy * 0.0035));
+        computeInspectCamera(activeArtwork);
+        return;
+      }
+
+      if (!isInspecting) {
+        raycaster.setFromCamera(mouseNDC, camera);
+        const hits = raycaster.intersectObjects(interactiveMeshes, false);
+        if (hits.length > 0 && hits[0].distance < 22) {
+          const id = hits[0].object.userData.artworkId;
+          hoveredArtworkId = id;
+          const art = artworkObjects.get(id).data;
+          tooltipTitle.textContent = art.title;
+          tooltip.style.left = `${e.clientX}px`;
+          tooltip.style.top = `${e.clientY}px`;
+          tooltip.classList.add('visible');
+          container.classList.add('hovering-artwork');
+        } else {
+          hoveredArtworkId = null;
+          tooltip.classList.remove('visible');
+          container.classList.remove('hovering-artwork');
+        }
+      }
+    });
+
+    // Click su un'opera per aprire l'analisi ravvicinata
+    container.addEventListener('click', () => {
+      if (!isInspecting && hoveredArtworkId) {
+        enterInspection(hoveredArtworkId);
+      }
+    });
+
+    // =========================================================================
+    // 9. ACUSTICA AMBIENTALE PROCEDURALE (WEB AUDIO API — OFF DI DEFAULT)
+    // =========================================================================
+    let audioCtx = null;
+    let audioGain = null;
+    let audioEnabled = false;
+
+    function toggleMuseumAudio() {
+      const iconOff = document.getElementById('icon-audio-off');
+      const iconOn = document.getElementById('icon-audio-on');
+
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+
+        // Rumore rosa morbidissimo filtrato (tono ambientale realistico da grande sala in marmo)
+        const bufferSize = audioCtx.sampleRate * 3;
+        const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const data = buffer.getChannelData(0);
+        let b0 = 0, b1 = 0, b2 = 0;
+        for (let i = 0; i < bufferSize; i++) {
+          const white = Math.random() * 2 - 1;
+          b0 = 0.997 * b0 + white * 0.029;
+          b1 = 0.985 * b1 + white * 0.032;
+          b2 = 0.950 * b2 + white * 0.048;
+          data[i] = (b0 + b1 + b2) * 0.12;
+        }
+
+        const noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        noise.loop = true;
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 340;
+
+        audioGain = audioCtx.createGain();
+        audioGain.gain.value = 0.0;
+
+        noise.connect(filter);
+        filter.connect(audioGain);
+        audioGain.connect(audioCtx.destination);
+        noise.start();
+      }
+
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      audioEnabled = !audioEnabled;
+      const now = audioCtx.currentTime;
+      audioGain.gain.cancelScheduledValues(now);
+      audioGain.gain.linearRampToValueAtTime(audioEnabled ? 0.24 : 0.0, now + 0.6);
+
+      iconOff.classList.toggle('hidden', audioEnabled);
+      iconOn.classList.toggle('hidden', !audioEnabled);
+    }
+
+    document.getElementById('btn-audio').addEventListener('click', toggleMuseumAudio);
+
+    // =========================================================================
+    // 10. AGGIORNAMENTO HUD DINAMICO & LOOP DI RENDERING A 60 FPS
+    // =========================================================================
+    let currentRoomIndex = -1;
+
+    function updateHUD(camZ) {
+      // Hero sfuma dolcemente appena si inizia a scorrere
+      if (!isInspecting) {
+        const heroOpacity = Math.max(0, 1 - currentProgress * 14);
+        heroOverlay.style.opacity = heroOpacity.toFixed(3);
+        heroOverlay.style.transform = `translateY(${-currentProgress * 180}px)`;
+      }
+
+      // Barra progresso rail
+      railFill.style.height = `${Math.round(currentProgress * 100)}%`;
+
+      // Determina sala attuale in base alla coordinata Z
+      let rIdx = 0;
+      for (let i = 0; i < ROOMS.length; i++) {
+        if (camZ <= ROOMS[i].zStart && camZ >= ROOMS[i].zEnd) {
+          rIdx = i;
+          break;
+        }
+      }
+
+      if (rIdx !== currentRoomIndex) {
+        currentRoomIndex = rIdx;
+        hudRoomNum.textContent = ROOMS[rIdx].num;
+        hudRoomName.textContent = ROOMS[rIdx].name;
+
+        railButtons.forEach((btn, idx) => {
+          const active = idx === rIdx;
+          const label = btn.querySelector('span:first-child');
+          const dot = btn.querySelector('.rail-dot');
+          label.classList.toggle('text-white', active);
+          label.classList.toggle('text-neutral-400', !active);
+          dot.classList.toggle('bg-[#c9a86a]', active);
+          dot.classList.toggle('border-[#c9a86a]', active);
+          dot.classList.toggle('bg-transparent', !active);
+          dot.classList.toggle('border-white/40', !active);
+          dot.classList.toggle('scale-125', active);
+        });
+      }
+
+      // Calcola l'opera più vicina per la pillola contestuale
+      let closestId = null;
+      let minDist = Infinity;
+      artworkObjects.forEach((entry, id) => {
+        const d = currentCamPos.distanceTo(entry.worldCenter);
+        if (d < minDist) {
+          minDist = d;
+          closestId = id;
+        }
+      });
+
+      if (closestId && minDist < 10.5 && currentProgress > 0.035 && !isInspecting) {
+        if (nearestArtworkId !== closestId) {
+          nearestArtworkId = closestId;
+          const art = artworkObjects.get(closestId).data;
+          proxArtist.textContent = `${art.artist} • ${art.year}`;
+          proxTitle.textContent = art.title;
+        }
+        proximityPill.classList.remove('opacity-0', 'translate-y-4');
+        proximityPill.classList.add('opacity-100', 'translate-y-0');
+      } else {
+        proximityPill.classList.add('opacity-0', 'translate-y-4');
+        proximityPill.classList.remove('opacity-100', 'translate-y-0');
+      }
+    }
+
+    const clock = new THREE.Clock();
+    const tmpPos = new THREE.Vector3();
+    const tmpLook = new THREE.Vector3();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.05);
+      const elapsed = clock.getElapsedTime();
+
+      // Smorzamento fluido parallasse mouse
+      smoothMouse.x += (mouseNDC.x - smoothMouse.x) * (1 - Math.exp(-4.5 * dt));
+      smoothMouse.y += (mouseNDC.y - smoothMouse.y) * (1 - Math.exp(-4.5 * dt));
+
+      if (isInspecting) {
+        // Transizione fluida verso la vista ravvicinata dell'opera
+        const ease = 1 - Math.exp(-5.0 * dt);
+        currentCamPos.lerp(inspectCamGoal, ease);
+        currentLookPos.lerp(inspectLookGoal, ease);
+      } else {
+        // Smorzamento inerziale dello scroll lungo le sale
+        const scrollEase = 1 - Math.exp(-5.2 * dt);
+        currentProgress += (targetProgress - currentProgress) * scrollEase;
+
+        cameraPath.getPointAt(currentProgress, tmpPos);
+        lookAtPath.getPointAt(currentProgress, tmpLook);
+
+        // Micro-parallasse naturale dello sguardo
+        tmpLook.x += smoothMouse.x * 0.55;
+        tmpLook.y += smoothMouse.y * 0.28;
+
+        const camEase = 1 - Math.exp(-7.5 * dt);
+        currentCamPos.lerp(tmpPos, camEase);
+        currentLookPos.lerp(tmpLook, camEase);
+      }
+
+      camera.position.copy(currentCamPos);
+      camera.lookAt(currentLookPos);
+
+      // Evidenziazione morbida dello spotlight sull'opera in hover o ispezione
+      artworkObjects.forEach((entry, id) => {
+        const boosted = (id === hoveredArtworkId || (isInspecting && activeArtwork && id === activeArtwork.id));
+        const goalIntensity = boosted ? entry.baseIntensity * 1.38 : entry.baseIntensity;
+        entry.spot.intensity += (goalIntensity - entry.spot.intensity) * (1 - Math.exp(-6 * dt));
+      });
+
+      // Rotazione lenta e ipnotica della scultura cinetica nella Sala IV
+      if (kineticSculptureRef) {
+        kineticSculptureRef.rotation.y = elapsed * 0.18;
+        kineticSculptureRef.rotation.z = Math.sin(elapsed * 0.35) * 0.08;
+      }
+
+      // Fluttuazione del pulviscolo atmosferico
+      dustPoints.position.y = Math.sin(elapsed * 0.25) * 0.14;
+
+      updateHUD(currentCamPos.z);
+      renderer.render(scene, camera);
+    }
+
+    // Gestione ridimensionamento finestra
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      if (isInspecting && activeArtwork) computeInspectCamera(activeArtwork);
+    });
+
+    // Avvio finale dopo caricamento pagina
+    window.onload = () => {
+      loadingStep(100, 'Apertura delle gallerie...');
+      animate();
+      setTimeout(() => {
+        loadingScreen.classList.add('hidden-loader');
+      }, 550);
+    };
+  </script>
+</body>
+</html>
