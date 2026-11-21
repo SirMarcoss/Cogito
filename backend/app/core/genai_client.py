@@ -37,9 +37,9 @@ class GenAIClient:
     def generate_structured(
         self,
         *,
-        prompt: str,
+        prompt: str, # dati presi dal db (scheda opera...)
         system_instruction: str,
-        response_schema: type[T],
+        response_schema: type[T], #scema pydantic che voglio ricevere in risposta
     ) -> T:
         """Esegue una chiamata Gemini con output JSON validato su schema Pydantic."""
         client = self._get_client()
