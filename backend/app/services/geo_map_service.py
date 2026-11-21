@@ -94,6 +94,7 @@ def find_nearby_opere(
             total=len(within_radius),
             items=within_radius,
         )
+    # se la lista within_radius ha almeno un elemento appartenente al cerchio di raggio 20km, ritorniamo.
 
     # Fallback anti-mappa vuota: per un giudice remoto restituiamo comunque il polo culturale
     fallback_items: list[OperaNearbyOut] = []
@@ -105,6 +106,7 @@ def find_nearby_opere(
             opera.resolved_lng,
         )
         fallback_items.append(_build_opera_nearby(opera, distance_from_pole))
+        # i valori di default sono quelli di catania, presenti in congif.py
 
     fallback_items.sort(key=lambda item: item.distance_km)
 
