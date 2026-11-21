@@ -2,7 +2,7 @@
 .idea/
 .vscode/
 
-# Environment & Secrets (NEVER commit .env)
+# Estremamente riservato
 .env
 .env.*
 !.env.example
