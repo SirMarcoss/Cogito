@@ -19,7 +19,7 @@ class NarrazioneCache(Base):
 
     __tablename__ = "narrazioni_cache"
     __table_args__ = (
-        UniqueConstraint("opera_id", "livello", name="uq_opera_livello"),
+        UniqueConstraint("opera_id", "livello", name="uq_opera_livello_competenza"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
