@@ -11,9 +11,11 @@ import {
   Sparkles,
   Square,
   Volume2,
+  X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { AskAiIllustration } from "../components/opera/AskAiIllustration";
 import { ConnectionsGraph } from "../components/opera/ConnectionsGraph";
 import { OperaQaSection } from "../components/opera/OperaQaSection";
 import { LevelDropdown } from "../components/ui/LevelDropdown";
@@ -66,10 +68,37 @@ export function OperaDetailPage({
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
 
-  // Stop speech automatically on artwork change, level change, or unmount
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+  const aiTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const aiCloseRef = useRef<HTMLButtonElement | null>(null);
+
+  // Stop speech and close AI drawer automatically on artwork change or unmount
+  useEffect(() => {
+    setAiSidebarOpen(false);
+  }, [id, code]);
+
   useEffect(() => {
     speech.stop();
   }, [id, code, userLevel, speech.stop]);
+
+  useEffect(() => {
+    if (!aiSidebarOpen) return;
+    const focusTimer = window.setTimeout(() => {
+      aiCloseRef.current?.focus({ preventScroll: true });
+    }, 60);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setAiSidebarOpen(false);
+        aiTriggerRef.current?.focus({ preventScroll: true });
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [aiSidebarOpen]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -183,7 +212,7 @@ export function OperaDetailPage({
   }, [opera?.id]);
 
   const audioScriptText = narration
-    ? narration.script_audio || narration.testo_lettura
+    ? narration.testo_lettura || narration.script_audio
     : opera?.descrizione_ufficiale || "";
 
   return (
@@ -222,9 +251,9 @@ export function OperaDetailPage({
         </div>
       </header>
 
-      <main className="w-full px-6 py-10 sm:px-10 lg:px-16 lg:py-14 xl:px-20">
+      <main className="w-full px-6 sm:px-10 lg:px-12 xl:px-16">
         {operaLoading && (
-          <div className="py-12">
+          <div className="py-20 lg:py-24">
             <p className="font-serif text-3xl text-ink-secondary">
               Caricamento dei dati ufficiali dell’opera…
             </p>
@@ -232,7 +261,7 @@ export function OperaDetailPage({
         )}
 
         {!operaLoading && operaError && (
-          <div className="max-w-2xl space-y-6 py-12">
+          <div className="max-w-2xl space-y-6 py-20 lg:py-24">
             <h1 className="font-serif text-4xl font-semibold text-ink sm:text-5xl">
               Opera non trovata
             </h1>
@@ -259,10 +288,16 @@ export function OperaDetailPage({
         {!operaLoading && opera && (
           <div
             key={opera.id}
-            className="grid grid-cols-1 gap-12 lg:grid-cols-12 xl:gap-16"
+            className="flex min-h-[calc(100vh-81px)] flex-col lg:flex-row lg:items-stretch"
           >
-            {/* LEFT MAIN COLUMN */}
-            <article className="space-y-14 lg:col-span-8">
+            {/* LEFT 4/5 EDITORIAL ARTWORK SHEET (Full-width when AI panel is closed) */}
+            <article
+              className={`min-w-0 flex-1 space-y-14 py-10 pb-28 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] sm:pb-24 lg:pt-14 lg:pb-32 ${
+                aiSidebarOpen
+                  ? "lg:w-4/5 lg:max-w-none lg:pr-8 xl:pr-10"
+                  : "mx-auto w-full max-w-6xl"
+              }`}
+            >
               <header className="grid gap-8 md:grid-cols-[1.2fr_0.8fr] md:items-center">
                 <RevealOnScroll immediate delayMs={40}>
                   <div className="space-y-4">
@@ -623,17 +658,89 @@ export function OperaDetailPage({
               </RevealOnScroll>
             </article>
 
-            {/* 3. RIGHT STICKY SIDEBAR: CHIEDI SULL'OPERA */}
-            <div className="border-t border-gold-light/70 pt-10 lg:col-span-4 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0 xl:pl-12">
-              <div className="lg:sticky lg:top-28">
-                <RevealOnScroll immediate delayMs={220}>
-                  <OperaQaSection operaId={opera.id} livello={userLevel} />
-                </RevealOnScroll>
-              </div>
+            {/* Mobile-only overlay backdrop (desktop stays bright and split 4/5 + 1/5) */}
+            {aiSidebarOpen && (
+              <div
+                aria-hidden="true"
+                onClick={() => {
+                  setAiSidebarOpen(false);
+                  aiTriggerRef.current?.focus({ preventScroll: true });
+                }}
+                className="fixed inset-0 z-[1140] bg-ink/30 backdrop-blur-[2px] lg:hidden"
+              />
+            )}
+
+            {/* RIGHT 1/5 DOCKED AI PANEL (desktop animated 4/5 + 1/5 split; mobile slide-in drawer) */}
+            <div
+              id="ai-assistant-sidebar"
+              role={aiSidebarOpen ? "region" : undefined}
+              aria-label="Cogito AI — Esplora il Patrimonio"
+              className={`transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                aiSidebarOpen
+                  ? "ai-drawer-enter fixed inset-y-0 right-0 z-[1150] flex w-full max-w-md flex-col border-l border-gold-light bg-panna shadow-2xl lg:static lg:inset-auto lg:z-auto lg:flex lg:w-1/5 lg:min-w-[275px] lg:max-w-none lg:shrink-0 lg:self-stretch lg:overflow-visible lg:border-l lg:border-gold-light/80 lg:bg-transparent lg:pl-6 lg:shadow-none lg:opacity-100 lg:translate-x-0 xl:pl-7"
+                  : "hidden lg:pointer-events-none lg:block lg:w-0 lg:min-w-0 lg:translate-x-6 lg:overflow-hidden lg:border-l-0 lg:pl-0 lg:opacity-0"
+              }`}
+            >
+              {aiSidebarOpen && (
+                <div className="ai-panel-dock-enter flex h-full flex-col lg:sticky lg:top-[81px] lg:h-[calc(100vh-81px)] lg:pb-5 lg:pt-6">
+                  <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gold-light/70 px-6 py-4 lg:px-0 lg:pb-3.5 lg:pt-0">
+                    <div className="flex items-center gap-2.5">
+                      <AskAiIllustration className="h-10 w-10 shrink-0" />
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
+                          Esplora il Patrimonio
+                        </p>
+                        <p className="font-serif text-xl font-semibold text-ink xl:text-2xl">
+                          Cogito AI
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      ref={aiCloseRef}
+                      type="button"
+                      aria-label="Chiudi Cogito AI"
+                      onClick={() => {
+                        setAiSidebarOpen(false);
+                        aiTriggerRef.current?.focus({ preventScroll: true });
+                      }}
+                      className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-full border border-gold-light text-ink transition hover:border-gold-deep hover:bg-panna-soft"
+                    >
+                      <X className="h-4 w-4" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 py-5 lg:p-0">
+                    <OperaQaSection operaId={opera.id} livello={userLevel} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
       </main>
+
+      {/* Floating animated "Chiedi all'AI" trigger button */}
+      {!operaLoading && opera && !aiSidebarOpen && (
+        <button
+          ref={aiTriggerRef}
+          type="button"
+          aria-expanded={aiSidebarOpen}
+          aria-controls="ai-assistant-sidebar"
+          onClick={() => setAiSidebarOpen(true)}
+          className="fixed bottom-5 right-5 z-[1040] flex items-center gap-3.5 rounded-3xl border-2 border-gold-deep/65 bg-panna/95 py-2.5 pl-3 pr-5 text-left shadow-2xl backdrop-blur-md transition-all duration-200 hover:-translate-y-0.5 hover:border-gold-deep hover:bg-panna-soft sm:bottom-7 sm:right-7 sm:pr-6"
+        >
+          <AskAiIllustration className="h-14 w-14 shrink-0 sm:h-16 sm:w-16" />
+          <div className="leading-tight">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
+              Scopri di più
+            </span>
+            <span className="font-serif text-2xl font-semibold text-ink sm:text-[26px]">
+              Chiedi all’AI
+            </span>
+          </div>
+        </button>
+      )}
     </div>
   );
 }

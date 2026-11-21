@@ -113,115 +113,121 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
   return (
     <aside
       aria-labelledby="qa-heading"
-      className="space-y-6"
+      className="flex h-full min-h-0 flex-col"
     >
-      <div className="space-y-2">
-        <div className="flex items-center gap-2.5 text-sm font-semibold uppercase tracking-[0.18em] text-gold-deep">
-          <MessageCircleQuestion className="h-5 w-5" aria-hidden="true" />
-          <span>Assistente AI · {LEVEL_LABELS[livello]}</span>
+      {/* Top Intro */}
+      <div className="shrink-0 space-y-1.5 lg:pt-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-gold-deep">
+          <MessageCircleQuestion className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Cogito AI · {LEVEL_LABELS[livello]}</span>
         </div>
         <h2
           id="qa-heading"
-          className="font-serif text-4xl font-semibold text-ink"
+          className="font-serif text-3xl font-semibold text-ink"
         >
           Chiedi sull’opera
         </h2>
-        <p className="text-base leading-relaxed text-ink-secondary">
+        <p className="text-sm leading-relaxed text-ink-secondary xl:text-base">
           Fai una domanda libera o scegli uno spunto: le risposte si basano sulle
           fonti storiche dell’opera.
         </p>
       </div>
 
-      {/* Suggested Questions */}
-      <div className="flex flex-col gap-2.5">
-        {SUGGESTED_QUESTIONS.map((q) => (
-          <button
-            key={q}
-            type="button"
-            disabled={loading}
-            onClick={() => handleSuggestedClick(q)}
-            className="inline-flex min-h-[48px] w-full items-center rounded-2xl border border-gold-deep/35 px-4 py-2.5 text-left text-base font-medium text-ink transition hover:border-gold-deep hover:bg-panna-soft disabled:opacity-50"
+      {/* Middle Airy Canvas & Scrollable Grounded Answer */}
+      <div className="min-h-[1.5rem] flex-1 overflow-y-auto py-4 pr-1">
+        {requestError && (
+          <p className="text-sm font-medium text-[#8A3727] xl:text-base">
+            {requestError}
+          </p>
+        )}
+
+        {response && (
+          <div
+            aria-live="polite"
+            className="space-y-3 border-l-4 border-gold-deep pl-4"
           >
-            {q}
-          </button>
-        ))}
+            {!response.in_scope && (
+              <div className="flex items-start gap-2 text-xs font-semibold text-[#8A4A1B] xl:text-sm">
+                <AlertTriangle
+                  className="mt-0.5 h-4 w-4 shrink-0"
+                  aria-hidden="true"
+                />
+                <span>
+                  Avviso: la domanda sembra fuori tema rispetto a questa opera.
+                </span>
+              </div>
+            )}
+
+            <p className="text-base leading-relaxed text-ink">{response.answer}</p>
+
+            {response.fonti_citate.length > 0 && (
+              <p className="text-xs leading-relaxed text-ink-muted xl:text-sm">
+                <span className="font-semibold text-gold-deep">Fonti: </span>
+                {response.fonti_citate.join(" · ")}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Free-text Question Form */}
-      <form onSubmit={handleSubmit} className="space-y-3.5 pt-1">
-        <label htmlFor="opera-qa-input" className="sr-only">
-          Scrivi una domanda sull’opera (tra 3 e 300 caratteri)
-        </label>
-        <textarea
-          id="opera-qa-input"
-          rows={3}
-          value={question}
-          onChange={(e) => {
-            setQuestion(e.target.value);
-            if (validationError) setValidationError(null);
-          }}
-          maxLength={320}
-          placeholder="Scrivi qui la tua domanda (3–300 caratteri)…"
-          className="w-full resize-none border-b-2 border-gold-deep/50 bg-transparent px-1 py-2 text-lg text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
-        />
+      {/* Bottom-Anchored Prompts & Composer */}
+      <div className="mt-auto shrink-0 space-y-3 border-t border-gold-light/50 pt-4">
+        <div className="flex flex-col gap-2">
+          {SUGGESTED_QUESTIONS.map((q) => (
+            <button
+              key={q}
+              type="button"
+              disabled={loading}
+              onClick={() => handleSuggestedClick(q)}
+              className="inline-flex min-h-[42px] w-full items-center rounded-2xl border border-gold-deep/35 px-3.5 py-2 text-left text-sm font-medium text-ink transition hover:border-gold-deep hover:bg-panna-soft disabled:opacity-50 xl:text-[15px]"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
 
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span
-            className={
-              charCount > 300 ? "font-semibold text-[#8A3727]" : "text-ink-muted"
-            }
-          >
-            {charCount} / 300 caratteri
-          </span>
-          {validationError && (
-            <span className="font-semibold text-[#8A3727]">
-              {validationError}
+        <form onSubmit={handleSubmit} className="space-y-2.5 pt-0.5">
+          <label htmlFor="opera-qa-input" className="sr-only">
+            Scrivi una domanda sull’opera (tra 3 e 300 caratteri)
+          </label>
+          <textarea
+            id="opera-qa-input"
+            rows={2}
+            value={question}
+            onChange={(e) => {
+              setQuestion(e.target.value);
+              if (validationError) setValidationError(null);
+            }}
+            maxLength={320}
+            placeholder="Scrivi qui la tua domanda (3–300 caratteri)…"
+            className="w-full resize-none border-b-2 border-gold-deep/50 bg-transparent px-1 py-1.5 text-base text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
+          />
+
+          <div className="flex items-center justify-between gap-2 text-xs xl:text-sm">
+            <span
+              className={
+                charCount > 300 ? "font-semibold text-[#8A3727]" : "text-ink-muted"
+              }
+            >
+              {charCount} / 300 caratteri
             </span>
-          )}
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="btn-museum-primary w-full"
-        >
-          <Send className="h-5 w-5" aria-hidden="true" />
-          <span>{loading ? "Elaborazione…" : "Invia domanda"}</span>
-        </button>
-      </form>
-
-      {requestError && (
-        <p className="text-base font-medium text-[#8A3727]">{requestError}</p>
-      )}
-
-      {/* Grounded Answer */}
-      {response && (
-        <div
-          aria-live="polite"
-          className="space-y-3.5 border-l-4 border-gold-deep pl-5 pt-1"
-        >
-          {!response.in_scope && (
-            <div className="flex items-start gap-2.5 text-sm font-semibold text-[#8A4A1B]">
-              <AlertTriangle
-                className="mt-0.5 h-5 w-5 shrink-0"
-                aria-hidden="true"
-              />
-              <span>
-                Avviso: la domanda sembra fuori tema rispetto a questa opera.
+            {validationError && (
+              <span className="font-semibold text-[#8A3727]">
+                {validationError}
               </span>
-            </div>
-          )}
+            )}
+          </div>
 
-          <p className="text-lg leading-relaxed text-ink">{response.answer}</p>
-
-          {response.fonti_citate.length > 0 && (
-            <p className="text-sm text-ink-muted">
-              <span className="font-semibold text-gold-deep">Fonti: </span>
-              {response.fonti_citate.join(" · ")}
-            </p>
-          )}
-        </div>
-      )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-museum-primary min-h-[46px] w-full py-2.5 text-base"
+          >
+            <Send className="h-4 w-4" aria-hidden="true" />
+            <span>{loading ? "Elaborazione…" : "Invia domanda"}</span>
+          </button>
+        </form>
+      </div>
     </aside>
   );
 }

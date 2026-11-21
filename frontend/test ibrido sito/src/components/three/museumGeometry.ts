@@ -12,7 +12,6 @@ import {
   createPlazaPBR,
   createTravertinePBR,
   createVeinedMarblePBR,
-  createVerticalAoGradientTexture,
   createVolumetricBeamTexture,
 } from "./museumTextures";
 
@@ -1367,7 +1366,8 @@ export function buildNeoclassicalMuseum(
   sunLight.shadow.camera.right = 48;
   sunLight.shadow.camera.top = 34;
   sunLight.shadow.camera.bottom = -28;
-  sunLight.shadow.bias = -0.00035;
+  sunLight.shadow.bias = -0.0002;
+  sunLight.shadow.normalBias = 0.035;
   scene.add(sunLight);
 
   const skyFillLight = new THREE.DirectionalLight("#DCE6F5", 0.58);
@@ -1444,7 +1444,6 @@ export function buildNeoclassicalMuseum(
   const carpetRunnerTex = createCarpetRunnerTexture();
   const clockFaceTex = createClockFaceTexture();
   const contactShadowTex = createContactShadowTexture();
-  const verticalAoTex = createVerticalAoGradientTexture();
   const beamTex = createVolumetricBeamTexture();
   const friezePlaqueTex = createMuseumFriezePlaqueTexture();
   const paintingTextures = [0, 1, 2, 3, 4, 5].map((v) =>
@@ -1611,14 +1610,6 @@ export function buildNeoclassicalMuseum(
     depthWrite: false,
   });
 
-  const verticalAoMat = new THREE.MeshBasicMaterial({
-    map: verticalAoTex,
-    transparent: true,
-    opacity: 0.9,
-    depthWrite: false,
-    side: THREE.DoubleSide,
-  });
-
   const beamMat = new THREE.MeshBasicMaterial({
     map: beamTex,
     transparent: true,
@@ -1768,11 +1759,13 @@ export function buildNeoclassicalMuseum(
   // 2. MONUMENTAL STAIRCASE, URNS & PODIUM
   // =========================================================================
   const stepCount = 5;
+  const stepBackZ = 5.05;
   for (let i = 0; i < stepCount; i++) {
     const stepW = 14.8 - i * 0.82;
-    const stepD = 6.5 - i * 0.96;
+    const stepFrontZ = 6.55 + (stepCount - 1 - i) * 0.9;
+    const stepD = stepFrontZ - stepBackZ;
     const stepH = 0.36;
-    const stepZ = 5.25 + (stepCount - 1 - i) * 0.42;
+    const stepZ = stepBackZ + stepD / 2;
 
     const step = new THREE.Mesh(
       createBeveledBoxGeometry(stepW, stepH, stepD, 0.024),
@@ -1787,16 +1780,9 @@ export function buildNeoclassicalMuseum(
       new THREE.BoxGeometry(stepW - 0.04, 0.032, 0.06),
       goldMat,
     );
-    nosing.position.set(0, (i + 1) * stepH - 0.015, stepZ + stepD / 2 - 0.02);
+    nosing.position.set(0, (i + 1) * stepH - 0.015, stepFrontZ - 0.02);
     museumGroup.add(nosing);
   }
-
-  const stairAoStrip = new THREE.Mesh(
-    new THREE.PlaneGeometry(15.2, 0.55),
-    verticalAoMat,
-  );
-  stairAoStrip.position.set(0, 0.25, 9.36);
-  museumGroup.add(stairAoStrip);
 
   [-8.2, 8.2].forEach((ux) => {
     const urn = createClassicalUrn(limestoneTrimMat, goldMat, contactShadowMat);
@@ -1822,13 +1808,6 @@ export function buildNeoclassicalMuseum(
     );
     baseboard.position.set(wx, podiumTopY + 0.12, 2.08);
     museumGroup.add(baseboard);
-
-    const wingAo = new THREE.Mesh(
-      new THREE.PlaneGeometry(8.4, 0.55),
-      verticalAoMat,
-    );
-    wingAo.position.set(wx, podiumTopY + 0.28, 2.09);
-    museumGroup.add(wingAo);
   });
 
   // =========================================================================
@@ -2443,14 +2422,6 @@ export function buildNeoclassicalMuseum(
     const colG = new THREE.Group();
     colG.position.set(cx, podiumTopY, 3.85);
 
-    const colShadow = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.1, 2.1),
-      contactShadowMat,
-    );
-    colShadow.rotation.x = -Math.PI / 2;
-    colShadow.position.y = 0.015;
-    colG.add(colShadow);
-
     const plinth = new THREE.Mesh(colPlinthGeo, limestoneTrimMat);
     plinth.position.y = 0.14;
     plinth.castShadow = true;
@@ -2989,7 +2960,6 @@ export function buildNeoclassicalMuseum(
     carpetRunnerTex.dispose();
     clockFaceTex.dispose();
     contactShadowTex.dispose();
-    verticalAoTex.dispose();
     beamTex.dispose();
     friezePlaqueTex.dispose();
     paintingTextures.forEach((t) => t.dispose());
