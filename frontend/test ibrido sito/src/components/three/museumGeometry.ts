@@ -122,10 +122,11 @@ function createArchedPageGeometry(
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i);
-    const u =
-      side === "right"
-        ? (x + width / 2) / width
-        : (width / 2 - x) / width;
+    const u = THREE.MathUtils.clamp(
+      side === "right" ? (x + width / 2) / width : (width / 2 - x) / width,
+      0,
+      1,
+    );
     const archY = Math.sin(Math.pow(u, 0.75) * Math.PI) * archAmp;
     pos.setY(i, archY);
   }
@@ -182,52 +183,794 @@ function createClassicalUrn(
   return group;
 }
 
-function createMediterraneanPlanter(
+/** Helper creating an engaged or free-standing classical column for exterior ruins & monuments. */
+function createExteriorClassicalColumn(
+  height: number,
+  radius: number,
   stoneMat: THREE.Material,
-  foliageMat: THREE.Material,
-  trunkMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+): THREE.Group {
+  const col = new THREE.Group();
+  const baseH = 0.28;
+  const capH = 0.34;
+  const shaftH = Math.max(0.5, height - baseH - capH);
+
+  const plinth = new THREE.Mesh(
+    createBeveledBoxGeometry(radius * 2.8, baseH, radius * 2.8, 0.02),
+    limestoneTrimMat,
+  );
+  plinth.position.y = baseH / 2;
+  plinth.castShadow = true;
+  col.add(plinth);
+
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius * 0.86, radius, shaftH, 16),
+    stoneMat,
+  );
+  shaft.position.y = baseH + shaftH / 2;
+  shaft.castShadow = true;
+  shaft.receiveShadow = true;
+  col.add(shaft);
+
+  const collar = new THREE.Mesh(
+    new THREE.TorusGeometry(radius * 0.9, 0.028, 8, 18),
+    goldMat,
+  );
+  collar.rotation.x = Math.PI / 2;
+  collar.position.y = baseH + shaftH;
+  col.add(collar);
+
+  const capital = new THREE.Mesh(
+    createBeveledBoxGeometry(radius * 2.65, capH, radius * 2.65, 0.02),
+    limestoneTrimMat,
+  );
+  capital.position.y = baseH + shaftH + capH / 2;
+  capital.castShadow = true;
+  col.add(capital);
+
+  return col;
+}
+
+/** Right-side Roman triple-fornix Triumphal Arch. */
+function createTriumphalArchStructure(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
   contactShadowMat: THREE.Material,
 ): THREE.Group {
   const group = new THREE.Group();
 
   const shadow = new THREE.Mesh(
-    new THREE.PlaneGeometry(3.2, 3.2),
+    new THREE.PlaneGeometry(9.8, 4.0),
     contactShadowMat,
   );
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.015;
   group.add(shadow);
 
-  const planter = new THREE.Mesh(
-    createBeveledBoxGeometry(1.75, 0.85, 1.75, 0.035),
-    stoneMat,
+  const plinthH = 0.48;
+  const plinth = new THREE.Mesh(
+    createBeveledBoxGeometry(8.0, plinthH, 2.2, 0.03),
+    limestoneTrimMat,
   );
-  planter.position.y = 0.425;
-  planter.castShadow = true;
-  planter.receiveShadow = true;
-  group.add(planter);
+  plinth.position.y = plinthH / 2;
+  plinth.castShadow = true;
+  plinth.receiveShadow = true;
+  group.add(plinth);
 
-  const trunk = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.1, 0.16, 1.5, 10),
-    trunkMat,
-  );
-  trunk.position.y = 1.5;
-  trunk.castShadow = true;
-  group.add(trunk);
+  const archW = 7.4;
+  const archH = 5.8;
+  const shape = new THREE.Shape();
+  shape.moveTo(-archW / 2, 0);
+  shape.lineTo(archW / 2, 0);
+  shape.lineTo(archW / 2, archH);
+  shape.lineTo(-archW / 2, archH);
+  shape.closePath();
 
-  // Sculpted cypress / Mediterranean topiary cones
-  [
-    [0, 2.7, 0, 0.78, 2.2],
-    [0, 3.85, 0, 0.56, 1.7],
-    [0, 4.75, 0, 0.34, 1.1],
-  ].forEach(([x, y, z, r, h]) => {
-    const puff = new THREE.Mesh(new THREE.ConeGeometry(r, h, 14), foliageMat);
-    puff.position.set(x, y, z);
-    puff.castShadow = true;
-    group.add(puff);
+  const addArchCutout = (cx: number, halfW: number, straightH: number) => {
+    const hole = new THREE.Path();
+    hole.moveTo(cx - halfW, 0);
+    hole.lineTo(cx - halfW, straightH);
+    hole.absarc(cx, straightH, halfW, Math.PI, 0, true);
+    hole.lineTo(cx + halfW, 0);
+    hole.closePath();
+    shape.holes.push(hole);
+  };
+
+  addArchCutout(0, 1.15, 2.45);
+  addArchCutout(-2.45, 0.6, 1.65);
+  addArchCutout(2.45, 0.6, 1.65);
+
+  const archGeo = new THREE.ExtrudeGeometry(shape, {
+    depth: 1.65,
+    bevelEnabled: true,
+    bevelThickness: 0.025,
+    bevelSize: 0.025,
+    bevelSegments: 2,
+    curveSegments: 22,
+  });
+  const archBody = new THREE.Mesh(archGeo, stoneMat);
+  archBody.position.set(0, plinthH, -0.825);
+  archBody.castShadow = true;
+  archBody.receiveShadow = true;
+  group.add(archBody);
+
+  // 4 front + 4 rear engaged columns framing the three arches
+  [-3.32, -1.48, 1.48, 3.32].forEach((cx) => {
+    [-0.92, 0.92].forEach((cz) => {
+      const col = createExteriorClassicalColumn(
+        5.35,
+        0.2,
+        stoneMat,
+        limestoneTrimMat,
+        goldMat,
+      );
+      col.position.set(cx, plinthH, cz);
+      group.add(col);
+    });
   });
 
+  // Molded keystones over central and lateral fornices
+  const keystoneSpecs: Array<[number, number, number]> = [
+    [0, plinthH + 2.45 + 1.15 + 0.08, 0.42],
+    [-2.45, plinthH + 1.65 + 0.6 + 0.06, 0.3],
+    [2.45, plinthH + 1.65 + 0.6 + 0.06, 0.3],
+  ];
+  keystoneSpecs.forEach(([kx, ky, kh]) => {
+    const keystone = new THREE.Mesh(
+      createBeveledBoxGeometry(0.28, kh, 1.8, 0.02),
+      limestoneTrimMat,
+    );
+    keystone.position.set(kx, ky, 0);
+    group.add(keystone);
+  });
+
+  // Bold cornice, golden frieze band, and sculpted attic with medallion
+  const cornice = new THREE.Mesh(
+    createBeveledBoxGeometry(8.1, 0.38, 2.15, 0.025),
+    limestoneTrimMat,
+  );
+  cornice.position.y = plinthH + archH + 0.19;
+  cornice.castShadow = true;
+  group.add(cornice);
+
+  const goldFrieze = new THREE.Mesh(
+    new THREE.BoxGeometry(7.9, 0.09, 2.02),
+    goldMat,
+  );
+  goldFrieze.position.y = plinthH + archH - 0.04;
+  group.add(goldFrieze);
+
+  const attic = new THREE.Mesh(
+    createBeveledBoxGeometry(6.2, 1.15, 1.55, 0.025),
+    stoneMat,
+  );
+  attic.position.y = plinthH + archH + 0.38 + 0.575;
+  attic.castShadow = true;
+  group.add(attic);
+
+  const inscriptionTablet = new THREE.Mesh(
+    createBeveledBoxGeometry(2.8, 0.68, 1.64, 0.02),
+    limestoneTrimMat,
+  );
+  inscriptionTablet.position.y = plinthH + archH + 0.96;
+  group.add(inscriptionTablet);
+
+  const laurelRing = new THREE.Mesh(
+    new THREE.TorusGeometry(0.42, 0.045, 10, 28),
+    goldMat,
+  );
+  laurelRing.position.set(0, plinthH + archH + 0.96, 0.85);
+  group.add(laurelRing);
+
   return group;
+}
+
+/** Right-side curved concave Exedra architectural recess ("rientranza"). */
+function createCurvedExedraRecess(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+  contactShadowMat: THREE.Material,
+): THREE.Group {
+  const group = new THREE.Group();
+
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(8.4, 6.2),
+    contactShadowMat,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.set(0, 0.015, -1.6);
+  group.add(shadow);
+
+  const createArcExtrude = (
+    innerR: number,
+    outerR: number,
+    height: number,
+    startA = 0.12 * Math.PI,
+    endA = 0.88 * Math.PI,
+  ): THREE.BufferGeometry => {
+    const arcShape = new THREE.Shape();
+    arcShape.moveTo(outerR * Math.cos(startA), outerR * Math.sin(startA));
+    arcShape.absarc(0, 0, outerR, startA, endA, false);
+    arcShape.lineTo(innerR * Math.cos(endA), innerR * Math.sin(endA));
+    arcShape.absarc(0, 0, innerR, endA, startA, true);
+    arcShape.closePath();
+
+    const geo = new THREE.ExtrudeGeometry(arcShape, {
+      depth: height,
+      bevelEnabled: true,
+      bevelThickness: 0.02,
+      bevelSize: 0.02,
+      bevelSegments: 1,
+      curveSegments: 28,
+    });
+    // Rotate -90deg around X so +Y curve goes into -Z (opening toward +Z) and extrusion goes UP (+Y)
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+  };
+
+  const baseArc = new THREE.Mesh(
+    createArcExtrude(2.72, 3.78, 0.34, 0.1 * Math.PI, 0.9 * Math.PI),
+    limestoneTrimMat,
+  );
+  baseArc.castShadow = true;
+  baseArc.receiveShadow = true;
+  group.add(baseArc);
+
+  const wallArc = new THREE.Mesh(
+    createArcExtrude(2.95, 3.55, 4.3, 0.12 * Math.PI, 0.88 * Math.PI),
+    stoneMat,
+  );
+  wallArc.position.y = 0.34;
+  wallArc.castShadow = true;
+  wallArc.receiveShadow = true;
+  group.add(wallArc);
+
+  const goldArc = new THREE.Mesh(
+    createArcExtrude(2.86, 3.68, 0.09, 0.11 * Math.PI, 0.89 * Math.PI),
+    goldMat,
+  );
+  goldArc.position.y = 4.64;
+  group.add(goldArc);
+
+  const corniceArc = new THREE.Mesh(
+    createArcExtrude(2.75, 3.78, 0.32, 0.1 * Math.PI, 0.9 * Math.PI),
+    limestoneTrimMat,
+  );
+  corniceArc.position.y = 4.73;
+  corniceArc.castShadow = true;
+  group.add(corniceArc);
+
+  // 4 engaged columns along the concave inner wall
+  [0.24 * Math.PI, 0.42 * Math.PI, 0.58 * Math.PI, 0.76 * Math.PI].forEach(
+    (ang) => {
+      const r = 2.82;
+      const col = createExteriorClassicalColumn(
+        4.25,
+        0.18,
+        stoneMat,
+        limestoneTrimMat,
+        goldMat,
+      );
+      col.position.set(r * Math.cos(ang), 0.34, -r * Math.sin(ang));
+      group.add(col);
+    },
+  );
+
+  // Classical stone pedestal & golden amphora centered inside the alcove
+  const ped = new THREE.Mesh(
+    createBeveledBoxGeometry(0.88, 1.05, 0.88, 0.025),
+    limestoneTrimMat,
+  );
+  ped.position.set(0, 0.525, -1.25);
+  ped.castShadow = true;
+  group.add(ped);
+
+  const vasePts = [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(0.19, 0.04),
+    new THREE.Vector2(0.12, 0.17),
+    new THREE.Vector2(0.3, 0.5),
+    new THREE.Vector2(0.28, 0.76),
+    new THREE.Vector2(0.12, 0.96),
+    new THREE.Vector2(0.21, 1.08),
+  ];
+  const amphora = new THREE.Mesh(new THREE.LatheGeometry(vasePts, 20), goldMat);
+  amphora.position.set(0, 1.05, -1.25);
+  amphora.castShadow = true;
+  group.add(amphora);
+
+  return group;
+}
+
+/** Right-side distant classical portico colonnade fragment. */
+function createDistantColonnadeFragment(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+  contactShadowMat: THREE.Material,
+): THREE.Group {
+  const group = new THREE.Group();
+
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(7.2, 3.2),
+    contactShadowMat,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.015;
+  group.add(shadow);
+
+  const stylobate = new THREE.Mesh(
+    createBeveledBoxGeometry(5.8, 0.48, 2.0, 0.03),
+    limestoneTrimMat,
+  );
+  stylobate.position.y = 0.24;
+  stylobate.castShadow = true;
+  stylobate.receiveShadow = true;
+  group.add(stylobate);
+
+  [-2.1, -0.7, 0.7, 2.1].forEach((cx) => {
+    const col = createExteriorClassicalColumn(
+      4.8,
+      0.22,
+      stoneMat,
+      limestoneTrimMat,
+      goldMat,
+    );
+    col.position.set(cx, 0.48, 0);
+    group.add(col);
+  });
+
+  const architrave = new THREE.Mesh(
+    createBeveledBoxGeometry(5.95, 0.5, 1.4, 0.025),
+    stoneMat,
+  );
+  architrave.position.y = 0.48 + 4.8 + 0.25;
+  architrave.castShadow = true;
+  group.add(architrave);
+
+  const goldTrim = new THREE.Mesh(
+    new THREE.BoxGeometry(6.0, 0.08, 1.46),
+    goldMat,
+  );
+  goldTrim.position.y = 0.48 + 4.8 + 0.52;
+  group.add(goldTrim);
+
+  const cornice = new THREE.Mesh(
+    createBeveledBoxGeometry(6.2, 0.28, 1.68, 0.02),
+    limestoneTrimMat,
+  );
+  cornice.position.y = 0.48 + 4.8 + 0.7;
+  cornice.castShadow = true;
+  group.add(cornice);
+
+  return group;
+}
+
+/** Left-side miniature Roman Colosseum / Anfiteatro Romano with stepped iconic outer attic. */
+function createMiniColosseumStructure(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+  contactShadowMat: THREE.Material,
+  darkInteriorMat: THREE.Material,
+): THREE.Group {
+  const group = new THREE.Group();
+  const rx = 4.6;
+  const rz = 3.8;
+
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(11.4, 9.6),
+    contactShadowMat,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.015;
+  group.add(shadow);
+
+  // Stepped elliptical podium
+  const podium = new THREE.Mesh(
+    new THREE.CylinderGeometry(rx + 0.42, rx + 0.52, 0.46, 38),
+    limestoneTrimMat,
+  );
+  podium.scale.set(1, 1, rz / rx);
+  podium.position.y = 0.23;
+  podium.castShadow = true;
+  podium.receiveShadow = true;
+  group.add(podium);
+
+  // Dark inner arena core so the radial arcade bays read deep & crisp
+  const innerCore = new THREE.Mesh(
+    new THREE.CylinderGeometry(1, 1, 4.42, 32),
+    darkInteriorMat,
+  );
+  innerCore.scale.set(rx - 0.55, 1, rz - 0.55);
+  innerCore.position.y = 0.46 + 4.42 / 2;
+  group.add(innerCore);
+
+  // Elliptical stone cornices & gold stringcourse rings separating Tier 1 and Tier 2
+  const addEllipticalBand = (
+    y: number,
+    height: number,
+    radialOffset: number,
+    mat: THREE.Material,
+  ) => {
+    const ring = new THREE.Mesh(
+      new THREE.CylinderGeometry(
+        rx + radialOffset,
+        rx + radialOffset,
+        height,
+        38,
+      ),
+      mat,
+    );
+    ring.scale.set(1, 1, (rz + radialOffset) / (rx + radialOffset));
+    ring.position.y = y;
+    ring.castShadow = true;
+    ring.receiveShadow = true;
+    group.add(ring);
+  };
+
+  addEllipticalBand(2.74, 0.22, 0.08, limestoneTrimMat);
+  addEllipticalBand(2.87, 0.06, 0.12, goldMat);
+  addEllipticalBand(5.04, 0.24, 0.1, limestoneTrimMat);
+  addEllipticalBand(5.18, 0.07, 0.14, goldMat);
+
+  // 18 radial arcade bays around Tier 1 & Tier 2, plus partial stepped Tier 3 outer attic
+  const numBays = 18;
+  const dummy = new THREE.Object3D();
+
+  const pierGeo = createBeveledBoxGeometry(0.46, 2.08, 0.56, 0.015);
+  const lintelGeo = createBeveledBoxGeometry(0.42, 0.46, 1.38, 0.015);
+  const pierMatrices: THREE.Matrix4[] = [];
+  const lintelMatrices: THREE.Matrix4[] = [];
+
+  for (let i = 0; i < numBays; i++) {
+    const theta = (i / numBays) * Math.PI * 2;
+    const x = rx * Math.cos(theta);
+    const z = rz * Math.sin(theta);
+    const tx = -rx * Math.sin(theta);
+    const tz = rz * Math.cos(theta);
+    const rotY = Math.atan2(tx, tz);
+
+    // Tier 1 pier & arch header
+    dummy.position.set(x, 0.46 + 1.04, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    pierMatrices.push(dummy.matrix.clone());
+
+    const midTheta = ((i + 0.5) / numBays) * Math.PI * 2;
+    const mx = rx * Math.cos(midTheta);
+    const mz = rz * Math.sin(midTheta);
+    const mRotY = Math.atan2(-rx * Math.sin(midTheta), rz * Math.cos(midTheta));
+    dummy.position.set(mx, 0.46 + 1.88, mz);
+    dummy.rotation.set(0, mRotY, 0);
+    dummy.updateMatrix();
+    lintelMatrices.push(dummy.matrix.clone());
+
+    // Tier 2 pier & arch header
+    dummy.position.set(x, 2.9 + 0.98, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(0.95, 0.92, 0.95);
+    dummy.updateMatrix();
+    pierMatrices.push(dummy.matrix.clone());
+
+    dummy.position.set(mx, 2.9 + 1.78, mz);
+    dummy.rotation.set(0, mRotY, 0);
+    dummy.scale.set(0.95, 0.92, 0.95);
+    dummy.updateMatrix();
+    lintelMatrices.push(dummy.matrix.clone());
+  }
+
+  const piersInstanced = new THREE.InstancedMesh(
+    pierGeo,
+    stoneMat,
+    pierMatrices.length,
+  );
+  piersInstanced.castShadow = true;
+  piersInstanced.receiveShadow = true;
+  piersInstanced.frustumCulled = false;
+  pierMatrices.forEach((m, idx) => piersInstanced.setMatrixAt(idx, m));
+  piersInstanced.instanceMatrix.needsUpdate = true;
+  group.add(piersInstanced);
+
+  const lintelsInstanced = new THREE.InstancedMesh(
+    lintelGeo,
+    limestoneTrimMat,
+    lintelMatrices.length,
+  );
+  lintelsInstanced.castShadow = true;
+  lintelsInstanced.frustumCulled = false;
+  lintelMatrices.forEach((m, idx) => lintelsInstanced.setMatrixAt(idx, m));
+  lintelsInstanced.instanceMatrix.needsUpdate = true;
+  group.add(lintelsInstanced);
+
+  // Iconic partial Tier 3 outer attic wall around the outer-left/rear arc
+  const atticGeo = createBeveledBoxGeometry(0.44, 1.38, 1.48, 0.02);
+  const atticCapGeo = createBeveledBoxGeometry(0.56, 0.22, 1.54, 0.02);
+  const atticPanels: Array<{ x: number; z: number; rotY: number }> = [];
+  for (let i = 0; i < numBays; i++) {
+    const midTheta = ((i + 0.5) / numBays) * Math.PI * 2;
+    if (Math.sin(midTheta) <= 0.28 || Math.cos(midTheta) < -0.15) {
+      atticPanels.push({
+        x: rx * Math.cos(midTheta),
+        z: rz * Math.sin(midTheta),
+        rotY: Math.atan2(-rx * Math.sin(midTheta), rz * Math.cos(midTheta)),
+      });
+    }
+  }
+
+  const atticInstanced = new THREE.InstancedMesh(
+    atticGeo,
+    stoneMat,
+    atticPanels.length,
+  );
+  atticInstanced.castShadow = true;
+  atticInstanced.frustumCulled = false;
+
+  const atticCapInstanced = new THREE.InstancedMesh(
+    atticCapGeo,
+    limestoneTrimMat,
+    atticPanels.length,
+  );
+  atticCapInstanced.castShadow = true;
+  atticCapInstanced.frustumCulled = false;
+
+  atticPanels.forEach((p, idx) => {
+    dummy.position.set(p.x, 5.21 + 0.69, p.z);
+    dummy.rotation.set(0, p.rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    atticInstanced.setMatrixAt(idx, dummy.matrix);
+
+    dummy.position.set(p.x, 5.21 + 1.46, p.z);
+    dummy.updateMatrix();
+    atticCapInstanced.setMatrixAt(idx, dummy.matrix);
+  });
+  atticInstanced.instanceMatrix.needsUpdate = true;
+  atticCapInstanced.instanceMatrix.needsUpdate = true;
+  group.add(atticInstanced);
+  group.add(atticCapInstanced);
+
+  return group;
+}
+
+/** Left-side U-shaped classical architectural recess ("rientranza") with blind niche & columns. */
+function createRectangularRecessStructure(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+  contactShadowMat: THREE.Material,
+): THREE.Group {
+  const group = new THREE.Group();
+
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.8, 4.0),
+    contactShadowMat,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.015;
+  group.add(shadow);
+
+  const baseH = 0.36;
+  const base = new THREE.Mesh(
+    createBeveledBoxGeometry(5.4, baseH, 2.8, 0.025),
+    limestoneTrimMat,
+  );
+  base.position.y = baseH / 2;
+  base.castShadow = true;
+  base.receiveShadow = true;
+  group.add(base);
+
+  const wallH = 4.05;
+  const backWall = new THREE.Mesh(
+    createBeveledBoxGeometry(5.0, wallH, 0.58, 0.025),
+    stoneMat,
+  );
+  backWall.position.set(0, baseH + wallH / 2, -1.05);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
+  group.add(backWall);
+
+  // Two forward-projecting wing walls framing the recessed bay
+  [-2.16, 2.16].forEach((wx) => {
+    const sideWall = new THREE.Mesh(
+      createBeveledBoxGeometry(0.68, wallH, 2.35, 0.025),
+      stoneMat,
+    );
+    sideWall.position.set(wx, baseH + wallH / 2, -0.05);
+    sideWall.castShadow = true;
+    sideWall.receiveShadow = true;
+    group.add(sideWall);
+  });
+
+  // Framing columns in front of the recess
+  [-1.44, 1.44].forEach((cx) => {
+    const col = createExteriorClassicalColumn(
+      wallH - 0.1,
+      0.19,
+      stoneMat,
+      limestoneTrimMat,
+      goldMat,
+    );
+    col.position.set(cx, baseH, 0.92);
+    group.add(col);
+  });
+
+  // Molded cornice & golden frieze across back and wings
+  const topGold = new THREE.Mesh(
+    new THREE.BoxGeometry(5.2, 0.08, 2.55),
+    goldMat,
+  );
+  topGold.position.set(0, baseH + wallH + 0.04, -0.05);
+  group.add(topGold);
+
+  const topCornice = new THREE.Mesh(
+    createBeveledBoxGeometry(5.45, 0.3, 2.72, 0.02),
+    limestoneTrimMat,
+  );
+  topCornice.position.set(0, baseH + wallH + 0.22, -0.05);
+  topCornice.castShadow = true;
+  group.add(topCornice);
+
+  // Golden relief medallion on the recessed rear wall & classical pedestal
+  const backRelief = new THREE.Mesh(
+    new THREE.TorusGeometry(0.62, 0.045, 10, 28),
+    goldMat,
+  );
+  backRelief.position.set(0, baseH + 2.75, -0.74);
+  group.add(backRelief);
+
+  const innerUrn = createClassicalUrn(limestoneTrimMat, goldMat, contactShadowMat);
+  innerUrn.scale.setScalar(0.86);
+  innerUrn.position.set(0, baseH, -0.08);
+  group.add(innerUrn);
+
+  return group;
+}
+
+/** Left-side distant circular classical pavilion (Tholos). */
+function createClassicalTholosStructure(
+  stoneMat: THREE.Material,
+  limestoneTrimMat: THREE.Material,
+  goldMat: THREE.Material,
+  contactShadowMat: THREE.Material,
+): THREE.Group {
+  const group = new THREE.Group();
+
+  const shadow = new THREE.Mesh(
+    new THREE.PlaneGeometry(6.8, 6.8),
+    contactShadowMat,
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = 0.015;
+  group.add(shadow);
+
+  const step1 = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.6, 2.72, 0.26, 28),
+    limestoneTrimMat,
+  );
+  step1.position.y = 0.13;
+  step1.receiveShadow = true;
+  group.add(step1);
+
+  const step2 = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.35, 2.45, 0.24, 28),
+    stoneMat,
+  );
+  step2.position.y = 0.38;
+  step2.castShadow = true;
+  group.add(step2);
+
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2 + 0.26;
+    const col = createExteriorClassicalColumn(
+      4.0,
+      0.18,
+      stoneMat,
+      limestoneTrimMat,
+      goldMat,
+    );
+    col.position.set(Math.cos(a) * 1.95, 0.5, Math.sin(a) * 1.95);
+    group.add(col);
+  }
+
+  const ringEntablature = new THREE.Mesh(
+    new THREE.CylinderGeometry(2.35, 2.3, 0.48, 28),
+    limestoneTrimMat,
+  );
+  ringEntablature.position.y = 0.5 + 4.0 + 0.24;
+  ringEntablature.castShadow = true;
+  group.add(ringEntablature);
+
+  const goldBand = new THREE.Mesh(
+    new THREE.TorusGeometry(2.33, 0.042, 8, 32),
+    goldMat,
+  );
+  goldBand.rotation.x = Math.PI / 2;
+  goldBand.position.y = 0.5 + 4.0 + 0.44;
+  group.add(goldBand);
+
+  const tholosDome = new THREE.Mesh(
+    new THREE.SphereGeometry(2.15, 28, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+    stoneMat,
+  );
+  tholosDome.scale.y = 0.62;
+  tholosDome.position.y = 0.5 + 4.0 + 0.48;
+  tholosDome.castShadow = true;
+  group.add(tholosDome);
+
+  const finial = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.52, 12), goldMat);
+  finial.position.y = 0.5 + 4.0 + 0.48 + 2.15 * 0.62 + 0.22;
+  group.add(finial);
+
+  return group;
+}
+
+function createBlendedMountainTerrain(): THREE.Mesh {
+  const width = 250;
+  const depth = 76;
+  const segX = 96;
+  const segZ = 24;
+  const geo = new THREE.PlaneGeometry(width, depth, segX, segZ);
+  geo.rotateX(-Math.PI / 2);
+
+  const pos = geo.attributes.position;
+  const count = pos.count;
+  const colors = new Float32Array(count * 3);
+
+  // Palette colors that seamlessly match the courtyard stone ground at y = 0
+  const baseGroundColor = new THREE.Color("#E1D5C0");
+  const midSlopeColor = new THREE.Color("#D8CCB8");
+  const peakMistColor = new THREE.Color("#EAE3D6");
+  const tmpColor = new THREE.Color();
+
+  for (let i = 0; i < count; i++) {
+    const x = pos.getX(i);
+    const localZ = pos.getZ(i); // ranges -depth/2 (back) to +depth/2 (front)
+    // v = 0 at front edge (+depth/2), v = 1 at far horizon (-depth/2)
+    const v = THREE.MathUtils.clamp((depth / 2 - localZ) / depth, 0, 1);
+
+    // Flat underground apron along the very front (v < 0.14) blends seamlessly under the plaza plane
+    const frontRamp = Math.pow(THREE.MathUtils.clamp((v - 0.12) / 0.88, 0, 1), 1.6);
+    const sideEnvelope = 0.42 + 0.58 * Math.min(1, Math.pow(Math.abs(x) / 36, 1.35));
+
+    const ridge =
+      6.8 +
+      4.2 * Math.sin(x * 0.042 + 0.65) * Math.cos(localZ * 0.032) +
+      2.6 * Math.cos(x * 0.092 - 0.4) +
+      1.35 * Math.sin(x * 0.17 + localZ * 0.065);
+
+    const y = v < 0.12 ? -0.06 : -0.06 + frontRamp * sideEnvelope * Math.max(0, ridge);
+    pos.setY(i, y);
+
+    const hNorm = THREE.MathUtils.clamp(y / 13.5, 0, 1);
+    if (hNorm < 0.45) {
+      tmpColor.lerpColors(baseGroundColor, midSlopeColor, hNorm / 0.45);
+    } else {
+      tmpColor.lerpColors(midSlopeColor, peakMistColor, (hNorm - 0.45) / 0.55);
+    }
+    colors[i * 3] = tmpColor.r;
+    colors[i * 3 + 1] = tmpColor.g;
+    colors[i * 3 + 2] = tmpColor.b;
+  }
+
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geo.computeVertexNormals();
+
+  const mat = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.96,
+    metalness: 0.01,
+    envMapIntensity: 0.45,
+  });
+
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(0, 0, -54);
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
 function createMuseumTreasurePedestal(
@@ -473,6 +1216,7 @@ function createFramedPaintingWithLabel(
   labelMat: THREE.Material,
   beamMat: THREE.Material,
   bronzeMat: THREE.Material,
+  lanternGlowMat?: THREE.Material,
 ): THREE.Group {
   const group = new THREE.Group();
 
@@ -482,12 +1226,12 @@ function createFramedPaintingWithLabel(
   );
   group.add(frame);
 
-  // Subtle self-illumination via emissiveMap so museum artworks are vivid & readable even indoors!
+  // Subtle self-illumination via emissiveMap so museum artworks are vivid & readable even in darker gallery light
   const canvasMat = new THREE.MeshStandardMaterial({
     map: paintingTex,
     emissive: "#FFF2DA",
     emissiveMap: paintingTex,
-    emissiveIntensity: 0.32,
+    emissiveIntensity: 0.28,
     roughness: 0.4,
     metalness: 0.02,
   });
@@ -499,7 +1243,7 @@ function createFramedPaintingWithLabel(
   canvasMesh.position.z = 0.074;
   group.add(canvasMesh);
 
-  // Brass picture-light bar above frame
+  // Brass picture-light bar above frame + warm glowing bulb strip underneath
   const lightBar = new THREE.Mesh(
     new THREE.CylinderGeometry(0.028, 0.028, width * 0.56, 10),
     goldMat,
@@ -507,6 +1251,15 @@ function createFramedPaintingWithLabel(
   lightBar.rotation.z = Math.PI / 2;
   lightBar.position.set(0, height / 2 + 0.28, 0.22);
   group.add(lightBar);
+
+  if (lanternGlowMat) {
+    const bulbStrip = new THREE.Mesh(
+      new THREE.BoxGeometry(width * 0.48, 0.018, 0.022),
+      lanternGlowMat,
+    );
+    bulbStrip.position.set(0, height / 2 + 0.255, 0.215);
+    group.add(bulbStrip);
+  }
 
   const arm = new THREE.Mesh(
     new THREE.BoxGeometry(0.05, 0.05, 0.24),
@@ -582,7 +1335,10 @@ export function buildNeoclassicalMuseum(
   renderer.toneMappingExposure = 1.07;
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2("#FAF6EE", 0.0058);
+  const extFogColor = new THREE.Color("#FAF6EE");
+  const intFogColor = new THREE.Color("#261F17");
+  const sceneFog = new THREE.FogExp2("#FAF6EE", 0.0058);
+  scene.fog = sceneFog;
 
   const envTexture = createEnvironmentMap(renderer);
   scene.environment = envTexture;
@@ -606,11 +1362,11 @@ export function buildNeoclassicalMuseum(
   sunLight.castShadow = true;
   sunLight.shadow.mapSize.set(sunShadowSize, sunShadowSize);
   sunLight.shadow.camera.near = 2;
-  sunLight.shadow.camera.far = 96;
-  sunLight.shadow.camera.left = -28;
-  sunLight.shadow.camera.right = 28;
-  sunLight.shadow.camera.top = 28;
-  sunLight.shadow.camera.bottom = -12;
+  sunLight.shadow.camera.far = 115;
+  sunLight.shadow.camera.left = -48;
+  sunLight.shadow.camera.right = 48;
+  sunLight.shadow.camera.top = 34;
+  sunLight.shadow.camera.bottom = -28;
   sunLight.shadow.bias = -0.00035;
   scene.add(sunLight);
 
@@ -618,23 +1374,57 @@ export function buildNeoclassicalMuseum(
   skyFillLight.position.set(-22, 16, 15);
   scene.add(skyFillLight);
 
-  // Warm interior lights inside atrium + book spotlight + wing galleries
-  const atriumLight = new THREE.PointLight("#FFE5B4", 12.0, 38, 1.2);
-  atriumLight.position.set(0, 6.9, -6.2);
+  // Darker, moody entrance hall lit by focused golden spotlight & warm gallery column sconces
+  const atriumLight = new THREE.PointLight("#FFB866", 1.0, 22, 2.0);
+  atriumLight.position.set(0, 6.8, -6.2);
   scene.add(atriumLight);
 
+  const coolSkylightFill = new THREE.PointLight("#D6E5F7", 0.65, 13, 1.8);
+  coolSkylightFill.position.set(0, 8.2, -6.6);
+  scene.add(coolSkylightFill);
+
   const bookSpotLight = new THREE.SpotLight(
-    "#FFE09E",
+    "#FFD890",
+    26,
     18,
-    18,
-    Math.PI / 3.8,
-    0.55,
-    1.1,
+    Math.PI / 7.5,
+    0.68,
+    1.3,
   );
-  bookSpotLight.position.set(0, 7.8, -5.0);
-  bookSpotLight.target.position.set(0, 3.3, -6.6);
+  bookSpotLight.position.set(0, 8.0, -5.1);
+  bookSpotLight.target.position.set(0, 3.2, -6.6);
   scene.add(bookSpotLight);
   scene.add(bookSpotLight.target);
+
+  // Warm amber accent pools at front & rear marble column sconces + vitrine display cases
+  const atriumLeftAccent = new THREE.PointLight("#FFB250", 3.5, 10, 2.0);
+  atriumLeftAccent.position.set(-4.0, 4.7, -4.6);
+  scene.add(atriumLeftAccent);
+
+  const atriumRightAccent = new THREE.PointLight("#FFB250", 3.5, 10, 2.0);
+  atriumRightAccent.position.set(4.0, 4.7, -4.6);
+  scene.add(atriumRightAccent);
+
+  const atriumRearLeftAccent = new THREE.PointLight("#FFB250", 3.5, 10, 2.0);
+  atriumRearLeftAccent.position.set(-4.0, 4.7, -11.4);
+  scene.add(atriumRearLeftAccent);
+
+  const atriumRearRightAccent = new THREE.PointLight("#FFB250", 3.5, 10, 2.0);
+  atriumRearRightAccent.position.set(4.0, 4.7, -11.4);
+  scene.add(atriumRearRightAccent);
+
+  const rearSpotLight = new THREE.SpotLight(
+    "#FFDCA0",
+    14,
+    18,
+    Math.PI / 5.8,
+    0.72,
+    1.2,
+  );
+  rearSpotLight.position.set(0, 8.0, -11.8);
+  rearSpotLight.target.position.set(0, 5.4, -16.4);
+  scene.add(rearSpotLight);
+  scene.add(rearSpotLight.target);
 
   const leftWingLight = new THREE.PointLight("#FFE0A3", 7.4, 20, 1.25);
   leftWingLight.position.set(-9.6, 6.1, -0.8);
@@ -709,13 +1499,14 @@ export function buildNeoclassicalMuseum(
   });
 
   const marbleFloorMat = new THREE.MeshStandardMaterial({
+    color: "#B9A992",
     map: marblePBR.map,
     normalMap: marblePBR.normalMap,
     normalScale: new THREE.Vector2(0.45, 0.45),
     roughnessMap: marblePBR.roughnessMap,
-    roughness: 0.88,
+    roughness: 0.52,
     metalness: 0.08,
-    envMapIntensity: 1.35,
+    envMapIntensity: 0.45,
   });
   applyAntiTilingShader(marbleFloorMat, {
     macroScale: 0.18,
@@ -725,13 +1516,28 @@ export function buildNeoclassicalMuseum(
   });
 
   const galleryWallMat = new THREE.MeshStandardMaterial({
-    color: "#EFE5D4",
+    color: "#9A876E",
+    normalMap: travertine.normalMap,
+    normalScale: new THREE.Vector2(0.28, 0.28),
+    emissive: "#000000",
+    emissiveIntensity: 0.0,
+    roughness: 0.84,
+    envMapIntensity: 0.15,
+  });
+
+  const atriumCeilingMat = new THREE.MeshStandardMaterial({
+    color: "#86745D",
     normalMap: travertine.normalMap,
     normalScale: new THREE.Vector2(0.22, 0.22),
-    emissive: "#E2BE7C",
-    emissiveIntensity: 0.16,
-    roughness: 0.74,
-    envMapIntensity: 0.6,
+    roughness: 0.88,
+    envMapIntensity: 0.14,
+  });
+
+  const darkInteriorMat = new THREE.MeshStandardMaterial({
+    color: "#3B3126",
+    roughness: 0.95,
+    metalness: 0.02,
+    envMapIntensity: 0.12,
   });
 
   const goldMat = new THREE.MeshStandardMaterial({
@@ -783,17 +1589,6 @@ export function buildNeoclassicalMuseum(
     map: carpetRunnerTex,
     roughness: 0.92,
     metalness: 0.02,
-  });
-
-  const foliageMat = new THREE.MeshStandardMaterial({
-    color: "#52664B",
-    roughness: 0.85,
-    metalness: 0.02,
-  });
-
-  const trunkMat = new THREE.MeshStandardMaterial({
-    color: "#5C4735",
-    roughness: 0.9,
   });
 
   const transparentGlassMat = new THREE.MeshPhysicalMaterial({
@@ -877,42 +1672,73 @@ export function buildNeoclassicalMuseum(
     museumGroup.add(curb);
   });
 
-  // Flanking Mediterranean stone planters & sculpted cypresses
-  [-15.2, 15.2].forEach((px) => {
-    [8.6, 16.5].forEach((pz) => {
-      const planter = createMediterraneanPlanter(
-        limestoneTrimMat,
-        foliageMat,
-        trunkMat,
-        contactShadowMat,
-      );
-      planter.position.set(px, 0, pz);
-      museumGroup.add(planter);
-    });
-  });
+  // Varied Asymmetric Classical Structures flanking the museum, clearly detached & angled toward the camera focal center:
+  // Right: Triumphal Arch, Curved Exedra Recess ("rientranza"), Distant Colonnade
+  // Left: Miniature Roman Colosseum, U-Shaped Architectural Recess ("rientranza"), Circular Tholos
+  const rightTriumphalArch = createTriumphalArchStructure(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+  );
+  rightTriumphalArch.position.set(27.2, 0, -17.5);
+  rightTriumphalArch.rotation.y = -0.56;
+  museumGroup.add(rightTriumphalArch);
 
-  // Distant Scenic Background: Subtle warm Sicilian Hills & Etna silhouette far behind the museum
-  const hillMat1 = new THREE.MeshStandardMaterial({
-    color: "#DED4C2",
-    roughness: 0.95,
-  });
-  const hillMat2 = new THREE.MeshStandardMaterial({
-    color: "#E8E0D1",
-    roughness: 0.95,
-  });
-  [
-    [-42, -55, 28, 7.5, hillMat1],
-    [44, -58, 30, 8.2, hillMat1],
-    [-26, -74, 34, 12.0, hillMat2],
-    [32, -72, 32, 11.5, hillMat2],
-  ].forEach(([hx, hz, hr, hh, hm]) => {
-    const hill = new THREE.Mesh(
-      new THREE.ConeGeometry(hr as number, hh as number, 28),
-      hm as THREE.Material,
-    );
-    hill.position.set(hx as number, (hh as number) / 2 - 0.5, hz as number);
-    museumGroup.add(hill);
-  });
+  const rightCurvedRecess = createCurvedExedraRecess(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+  );
+  rightCurvedRecess.position.set(35.8, 0, -22.2);
+  rightCurvedRecess.rotation.y = -0.7;
+  museumGroup.add(rightCurvedRecess);
+
+  const rightColonnade = createDistantColonnadeFragment(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+  );
+  rightColonnade.position.set(42.5, 0, -24.6);
+  rightColonnade.rotation.y = -0.74;
+  museumGroup.add(rightColonnade);
+
+  const leftColosseum = createMiniColosseumStructure(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+    darkInteriorMat,
+  );
+  leftColosseum.position.set(-28.4, 0, -18.5);
+  leftColosseum.rotation.y = 0.54;
+  museumGroup.add(leftColosseum);
+
+  const leftRecess = createRectangularRecessStructure(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+  );
+  leftRecess.position.set(-37.2, 0, -23.0);
+  leftRecess.rotation.y = 0.66;
+  museumGroup.add(leftRecess);
+
+  const leftTholos = createClassicalTholosStructure(
+    stoneMat,
+    limestoneTrimMat,
+    goldMat,
+    contactShadowMat,
+  );
+  leftTholos.position.set(-43.2, 0, -25.6);
+  leftTholos.rotation.y = 0.52;
+  museumGroup.add(leftTholos);
+
+  // Seamless Ground-Blended Distant Sicilian Mountain Ridge (vertex color gradient into plaza)
+  const mountainRidge = createBlendedMountainTerrain();
+  museumGroup.add(mountainRidge);
 
   // Bronze entrance stanchions & velvet ropes
   const stanchionPostGeo = new THREE.CylinderGeometry(0.04, 0.06, 0.9, 10);
@@ -1118,19 +1944,21 @@ export function buildNeoclassicalMuseum(
   carpetRunner.receiveShadow = true;
   museumGroup.add(carpetRunner);
 
-  // Coffered Atrium Ceiling + Warm Luminous Skylight
+  // Coffered Atrium Ceiling + Soft Subtle Skylight (casts shadow inside to darken atrium!)
   const atriumCeiling = new THREE.Mesh(
     new THREE.BoxGeometry(12.4, 0.4, 18.5),
-    limestoneTrimMat,
+    atriumCeilingMat,
   );
   atriumCeiling.position.set(0, podiumTopY + wallHeight, -7.7);
+  atriumCeiling.castShadow = true;
+  atriumCeiling.receiveShadow = true;
   museumGroup.add(atriumCeiling);
 
   const skylightMat = new THREE.MeshStandardMaterial({
-    color: "#FFF4DC",
-    emissive: "#FFDFA4",
-    emissiveIntensity: 0.72,
-    roughness: 0.3,
+    color: "#F5E5C4",
+    emissive: "#FFDCA0",
+    emissiveIntensity: 0.34,
+    roughness: 0.35,
   });
   const skylight = new THREE.Mesh(
     new THREE.PlaneGeometry(4.6, 5.4),
@@ -1179,6 +2007,22 @@ export function buildNeoclassicalMuseum(
     colRing.rotation.x = Math.PI / 2;
     colRing.position.set(ix, podiumTopY + wallHeight - 0.58, iz);
     museumGroup.add(colRing);
+
+    // Warm brass & alabaster interior wall sconce (applique) casting soft golden glow
+    const sconceArm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.16, 0.08, 0.16),
+      goldMat,
+    );
+    const inwardSign = ix < 0 ? 1 : -1;
+    sconceArm.position.set(ix + inwardSign * 0.36, podiumTopY + 3.4, iz);
+    museumGroup.add(sconceArm);
+
+    const sconceGlobe = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.13, 0.09, 0.32, 10),
+      lanternGlowMat,
+    );
+    sconceGlobe.position.set(ix + inwardSign * 0.42, podiumTopY + 3.6, iz);
+    museumGroup.add(sconceGlobe);
   });
 
   // Atrium Side Walls with 6 Luminous Museum Paintings (3 on left, 3 on right)
@@ -1188,6 +2032,8 @@ export function buildNeoclassicalMuseum(
       galleryWallMat,
     );
     innerWall.position.set(x, podiumTopY + wallHeight / 2, -7.7);
+    innerWall.castShadow = true;
+    innerWall.receiveShadow = true;
     museumGroup.add(innerWall);
 
     const innerBaseboard = new THREE.Mesh(
@@ -1209,6 +2055,7 @@ export function buildNeoclassicalMuseum(
         labelMat,
         beamMat,
         bronzeMat,
+        lanternGlowMat,
       );
       painting.position.set(x + (x < 0 ? 0.3 : -0.3), podiumTopY + 3.65, zPos);
       painting.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
@@ -1222,6 +2069,8 @@ export function buildNeoclassicalMuseum(
     galleryWallMat,
   );
   backWall.position.set(0, podiumTopY + wallHeight / 2, -16.8);
+  backWall.castShadow = true;
+  backWall.receiveShadow = true;
   museumGroup.add(backWall);
 
   [-4.4, 4.4].forEach((px) => {
@@ -1241,6 +2090,7 @@ export function buildNeoclassicalMuseum(
     labelMat,
     beamMat,
     bronzeMat,
+    lanternGlowMat,
   );
   rearMasterpiece.position.set(0, podiumTopY + 4.1, -16.4);
   museumGroup.add(rearMasterpiece);
@@ -2002,6 +2852,7 @@ export function buildNeoclassicalMuseum(
         labelMat,
         beamMat,
         bronzeMat,
+        lanternGlowMat,
       );
       painting.position.set(wingX + wx, podiumTopY + 3.55, frontZ - wingD + 0.6);
       museumGroup.add(painting);
@@ -2167,17 +3018,20 @@ export function buildNeoclassicalMuseum(
     renderer.setSize(w, h, false);
   };
 
+  const tzOffsetMs = new Date().getTimezoneOffset() * 60000;
+
   const update = (
     progress: number,
     pointerX: number,
     pointerY: number,
-    _elapsed: number,
+    elapsed: number,
   ) => {
-    // 1. Live Real-Time Clock synced to system clock
-    const now = new Date();
-    const secs = now.getSeconds() + now.getMilliseconds() / 1000;
-    const mins = now.getMinutes() + secs / 60;
-    const hrs = (now.getHours() % 12) + mins / 60;
+    // 1. Live Real-Time Clock synced to system clock (zero per-frame Date allocations)
+    const localMs = Date.now() - tzOffsetMs;
+    const dayMs = ((localMs % 86400000) + 86400000) % 86400000;
+    const secs = (dayMs / 1000) % 60;
+    const mins = (dayMs / 60000) % 60;
+    const hrs = (dayMs / 3600000) % 12;
     secondHandPivot.rotation.z = -(secs / 60) * Math.PI * 2;
     minuteHandPivot.rotation.z = -(mins / 60) * Math.PI * 2;
     hourHandPivot.rotation.z = -(hrs / 12) * Math.PI * 2;
@@ -2218,8 +3072,32 @@ export function buildNeoclassicalMuseum(
     turnLeaf2Pivot.rotation.z = leaf2Angle;
     turnLeaf2Pivot.visible = leaf1Angle > 0.38 && bookApproachT > 0.4;
 
-    ebLeftPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.18, 0.5, bookEase);
-    ebRightPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.18, 0.5, bookEase);
+    ebLeftPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.14, 0.56, bookEase);
+    ebRightPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.14, 0.56, bookEase);
+
+    // Darker, high-contrast museum atmosphere on entry so golden focal pools & sconces shine dramatically
+    const moodRaw = Math.min(1, Math.max(0, (clamped - 0.42) / 0.46));
+    const insideMoodT = moodRaw * moodRaw * (3 - 2 * moodRaw);
+    const warmPulse = 1 + 0.045 * Math.sin(elapsed * 1.45);
+
+    hemiLight.intensity = THREE.MathUtils.lerp(1.15, 0.22, insideMoodT);
+    skyFillLight.intensity = THREE.MathUtils.lerp(0.58, 0.08, insideMoodT);
+    sunLight.intensity = THREE.MathUtils.lerp(2.45, 0.55, insideMoodT);
+    renderer.toneMappingExposure = THREE.MathUtils.lerp(1.07, 0.84, insideMoodT);
+
+    sceneFog.color.lerpColors(extFogColor, intFogColor, insideMoodT);
+    sceneFog.density = THREE.MathUtils.lerp(0.0058, 0.0115, insideMoodT);
+
+    beamMat.opacity = THREE.MathUtils.lerp(0.1, 0.34, insideMoodT) * warmPulse;
+    bookSpotLight.intensity = THREE.MathUtils.lerp(26, 74, insideMoodT);
+    rearSpotLight.intensity = THREE.MathUtils.lerp(14, 38, insideMoodT);
+
+    const sconceIntensity =
+      THREE.MathUtils.lerp(3.5, 13.5, insideMoodT) * warmPulse;
+    atriumLeftAccent.intensity = sconceIntensity;
+    atriumRightAccent.intensity = sconceIntensity;
+    atriumRearLeftAccent.intensity = sconceIntensity;
+    atriumRearRightAccent.intensity = sconceIntensity;
 
     const parallaxWeight = Math.max(0, 1 - ease * 1.5);
     const camX = pointerX * 0.46 * parallaxWeight;

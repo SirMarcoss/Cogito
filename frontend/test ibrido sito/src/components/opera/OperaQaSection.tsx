@@ -1,5 +1,5 @@
 import { AlertTriangle, MessageCircleQuestion, Send } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { askOperaQuestion, isApiError } from "../../services/apiClient";
 import type { AskResponse, LivelloCompetenza } from "../../types/api";
 import { LEVEL_LABELS } from "../../utils/format";
@@ -21,13 +21,29 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [response, setResponse] = useState<AskResponse | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
     setQuestion("");
     setValidationError(null);
     setRequestError(null);
     setResponse(null);
   }, [operaId]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setLoading(false);
+  }, [livello]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const trimmed = question.trim();
   const charCount = trimmed.length;
@@ -48,21 +64,39 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
       return;
     }
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setLoading(true);
     try {
-      const res = await askOperaQuestion(operaId, {
-        question: clean,
-        livello,
-      });
-      setResponse(res);
+      const res = await askOperaQuestion(
+        operaId,
+        {
+          question: clean,
+          livello,
+        },
+        controller.signal,
+      );
+      if (!controller.signal.aborted) {
+        setResponse(res);
+      }
     } catch (err) {
+      if (
+        controller.signal.aborted ||
+        (err instanceof DOMException && err.name === "AbortError")
+      ) {
+        return;
+      }
       setRequestError(
         isApiError(err)
           ? err.detail
           : "Servizio domande temporaneamente non disponibile. Riprova tra poco.",
       );
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
@@ -128,7 +162,7 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
           }}
           maxLength={320}
           placeholder="Scrivi qui la tua domanda (3–300 caratteri)…"
-          className="w-full resize-none border-b-2 border-gold-deep/50 bg-transparent px-1 py-2 text-lg text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none"
+          className="w-full resize-none border-b-2 border-gold-deep/50 bg-transparent px-1 py-2 text-lg text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
         />
 
         <div className="flex items-center justify-between gap-2 text-sm">

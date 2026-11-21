@@ -3,6 +3,7 @@ import {
   ExternalLink,
   FileWarning,
   Info,
+  Loader2,
   Navigation,
   Pause,
   Play,
@@ -16,7 +17,9 @@ import { Link, useParams } from "react-router-dom";
 import { ConnectionsGraph } from "../components/opera/ConnectionsGraph";
 import { OperaQaSection } from "../components/opera/OperaQaSection";
 import { LevelDropdown } from "../components/ui/LevelDropdown";
-import { useSpeechGuide } from "../hooks/useSpeechGuide";
+import { RevealOnScroll } from "../components/ui/RevealOnScroll";
+import { VoicePickerDropdown } from "../components/ui/VoicePickerDropdown";
+import { formatAudioTime, useSpeechGuide } from "../hooks/useSpeechGuide";
 import {
   fetchOperaById,
   fetchOperaByQr,
@@ -63,14 +66,13 @@ export function OperaDetailPage({
   const [relatedLoading, setRelatedLoading] = useState(false);
   const [relatedError, setRelatedError] = useState<string | null>(null);
 
-  // Stop speech synthesis automatically on artwork change, level change, or unmount
+  // Stop speech automatically on artwork change, level change, or unmount
   useEffect(() => {
     speech.stop();
   }, [id, code, userLevel, speech.stop]);
 
-  // Direct 2D artwork lookup by /opera/:id or /qr/:code (zero 3D, zero intro animations)
   useEffect(() => {
-    let active = true;
+    const controller = new AbortController();
     setOperaLoading(true);
     setOperaError(null);
     setOpera(null);
@@ -81,20 +83,25 @@ export function OperaDetailPage({
       try {
         let data: OperaDetailOut;
         if (code) {
-          data = await fetchOperaByQr(code);
+          data = await fetchOperaByQr(code, controller.signal);
         } else if (id) {
           const parsedId = Number(id);
           if (!Number.isInteger(parsedId) || parsedId <= 0) {
             throw new Error("Identificativo opera non valido.");
           }
-          data = await fetchOperaById(parsedId);
+          data = await fetchOperaById(parsedId, controller.signal);
         } else {
           throw new Error("Opera non specificata.");
         }
 
-        if (active) setOpera(data);
+        if (!controller.signal.aborted) setOpera(data);
       } catch (err) {
-        if (!active) return;
+        if (
+          controller.signal.aborted ||
+          (err instanceof DOMException && err.name === "AbortError")
+        ) {
+          return;
+        }
         setOperaError(
           isApiError(err)
             ? err.detail
@@ -103,17 +110,16 @@ export function OperaDetailPage({
               : "Impossibile trovare l’opera richiesta.",
         );
       } finally {
-        if (active) setOperaLoading(false);
+        if (!controller.signal.aborted) setOperaLoading(false);
       }
     };
 
     void loadOpera();
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [id, code]);
 
-  // AI Complete Description synthesized from official archive sources for userLevel
   useEffect(() => {
     if (!opera) return;
     const controller = new AbortController();
@@ -146,7 +152,6 @@ export function OperaDetailPage({
     return () => controller.abort();
   }, [opera?.id, userLevel]);
 
-  // AI Historical-Cultural Connections (up to 3 related works)
   useEffect(() => {
     if (!opera) return;
     const controller = new AbortController();
@@ -183,7 +188,6 @@ export function OperaDetailPage({
 
   return (
     <div className="min-h-screen bg-panna text-ink">
-      {/* Full-Width Direct 2D Header with Top-Right Level Dropdown */}
       <header className="sticky top-0 z-[1050] border-b border-gold-light/70 bg-panna/95 backdrop-blur-md">
         <div className="flex w-full flex-wrap items-center justify-between gap-4 px-6 py-4 sm:px-10 lg:px-16 xl:px-20">
           <div className="flex flex-wrap items-center gap-4">
@@ -253,291 +257,378 @@ export function OperaDetailPage({
         )}
 
         {!operaLoading && opera && (
-          /* Full-Width 2-Column Layout: Left Main Content (Hero + Unified AI Description + Connections) + Right Sticky Q&A Sidebar */
-          <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 xl:gap-16">
+          <div
+            key={opera.id}
+            className="grid grid-cols-1 gap-12 lg:grid-cols-12 xl:gap-16"
+          >
             {/* LEFT MAIN COLUMN */}
             <article className="space-y-14 lg:col-span-8">
-              {/* Artwork Hero */}
               <header className="grid gap-8 md:grid-cols-[1.2fr_0.8fr] md:items-center">
-                <div className="space-y-4">
-                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-deep">
-                    {CATEGORIA_LABELS[opera.categoria]} · {opera.qr_code}
-                  </p>
-
-                  <h1 className="font-serif text-5xl font-semibold leading-[1.06] text-ink sm:text-6xl">
-                    {opera.titolo}
-                  </h1>
-
-                  <p className="text-2xl font-medium text-ink-secondary">
-                    {opera.autore} · {opera.anno}
-                  </p>
-
-                  <div className="space-y-1 text-lg text-ink-muted">
-                    <p>
-                      <strong className="font-semibold text-ink">
-                        {opera.ente.nome}
-                      </strong>{" "}
-                      ({TIPOLOGIA_ENTE_LABELS[opera.ente.tipologia]})
-                      {opera.sala ? ` — ${opera.sala}` : ""}
+                <RevealOnScroll immediate delayMs={40}>
+                  <div className="space-y-4">
+                    <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gold-deep">
+                      {CATEGORIA_LABELS[opera.categoria]} · {opera.qr_code}
                     </p>
-                    <p className="text-base">
-                      {opera.ente.indirizzo}, {opera.ente.citta}
-                      {opera.ente.orari ? ` · ${opera.ente.orari}` : ""}
+
+                    <h1 className="font-serif text-5xl font-semibold leading-[1.06] text-ink sm:text-6xl">
+                      {opera.titolo}
+                    </h1>
+
+                    <p className="text-2xl font-medium text-ink-secondary">
+                      {opera.autore} · {opera.anno}
                     </p>
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-4 pt-2">
-                    <a
-                      href={buildGoogleMapsDirectionsUrl(
-                        opera.ente.lat,
-                        opera.ente.lng,
-                      )}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-museum-primary"
-                    >
-                      <Navigation className="h-5 w-5" aria-hidden="true" />
-                      <span>Calcola percorso su Google Maps</span>
-                    </a>
+                    <div className="space-y-1 text-lg text-ink-muted">
+                      <p>
+                        <strong className="font-semibold text-ink">
+                          {opera.ente.nome}
+                        </strong>{" "}
+                        ({TIPOLOGIA_ENTE_LABELS[opera.ente.tipologia]})
+                        {opera.sala ? ` — ${opera.sala}` : ""}
+                      </p>
+                      <p className="text-base">
+                        {opera.ente.indirizzo}, {opera.ente.citta}
+                        {opera.ente.orari ? ` · ${opera.ente.orari}` : ""}
+                      </p>
+                    </div>
 
-                    {opera.ente.sito_web && (
+                    <div className="flex flex-wrap items-center gap-4 pt-2">
                       <a
-                        href={opera.ente.sito_web}
+                        href={buildGoogleMapsDirectionsUrl(
+                          opera.ente.lat,
+                          opera.ente.lng,
+                        )}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex min-h-[48px] items-center gap-1.5 text-base font-semibold text-gold-deep underline underline-offset-4 hover:text-gold-dark"
+                        className="btn-museum-primary"
                       >
-                        <span>Sito dell’ente</span>
-                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        <Navigation className="h-5 w-5" aria-hidden="true" />
+                        <span>Calcola percorso su Google Maps</span>
                       </a>
-                    )}
-                  </div>
-                </div>
 
-                <div>
-                  <img
-                    src={opera.immagine_url}
-                    alt={opera.titolo}
-                    className="max-h-[380px] w-full rounded-2xl object-cover"
-                  />
-                </div>
+                      {opera.ente.sito_web && (
+                        <a
+                          href={opera.ente.sito_web}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex min-h-[48px] items-center gap-1.5 text-base font-semibold text-gold-deep underline underline-offset-4 hover:text-gold-dark"
+                        >
+                          <span>Sito dell’ente</span>
+                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </RevealOnScroll>
+
+                <RevealOnScroll immediate delayMs={160}>
+                  <div>
+                    <img
+                      src={opera.immagine_url}
+                      alt={opera.titolo}
+                      className="max-h-[380px] w-full rounded-2xl object-cover"
+                    />
+                  </div>
+                </RevealOnScroll>
               </header>
 
-              {/* 1. UNIFIED AI DESCRIPTION FROM OFFICIAL ARCHIVES + AUDIOGUIDE */}
-              <section
-                aria-labelledby="ai-description-heading"
-                className="museum-rule space-y-7 pt-10"
-              >
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2.5 text-sm font-semibold uppercase tracking-[0.18em] text-gold-deep">
-                    <Sparkles className="h-5 w-5" aria-hidden="true" />
-                    <span>
-                      Elaborazione AI dagli archivi ufficiali · Livello{" "}
-                      {LEVEL_LABELS[userLevel]}
-                    </span>
-                  </div>
-                  <h2
-                    id="ai-description-heading"
-                    className="font-serif text-4xl font-semibold text-ink sm:text-5xl"
-                  >
-                    Descrizione completa dell’opera
-                  </h2>
-                </div>
-
-                {/* Italian Speech Audio Guide */}
-                {speech.supported && audioScriptText && !narrationLoading && (
-                  <div
-                    aria-label="Audioguida in italiano"
-                    className="flex flex-wrap items-center gap-3 border-y border-gold-light/70 py-4"
-                  >
-                    <div className="mr-2 flex items-center gap-2 text-base font-semibold text-ink">
-                      <Volume2
-                        className="h-5 w-5 text-gold-deep"
-                        aria-hidden="true"
-                      />
-                      <span>Audioguida italiana:</span>
-                    </div>
-
-                    {speech.status === "idle" && (
-                      <button
-                        type="button"
-                        onClick={() => speech.play(audioScriptText)}
-                        className="btn-museum-primary"
-                      >
-                        <Play className="h-5 w-5" aria-hidden="true" />
-                        <span>Ascolta</span>
-                      </button>
-                    )}
-
-                    {speech.status === "playing" && (
-                      <button
-                        type="button"
-                        onClick={speech.pause}
-                        className="btn-museum-primary"
-                      >
-                        <Pause className="h-5 w-5" aria-hidden="true" />
-                        <span>Pausa</span>
-                      </button>
-                    )}
-
-                    {speech.status === "paused" && (
-                      <button
-                        type="button"
-                        onClick={speech.resume}
-                        className="btn-museum-primary"
-                      >
-                        <Play className="h-5 w-5" aria-hidden="true" />
-                        <span>Riprendi</span>
-                      </button>
-                    )}
-
-                    {speech.status !== "idle" && (
-                      <button
-                        type="button"
-                        onClick={speech.stop}
-                        className="btn-museum-secondary"
-                      >
-                        <Square className="h-4 w-4" aria-hidden="true" />
-                        <span>Ferma</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {narrationLoading && (
-                  <p className="text-xl text-ink-secondary">
-                    Elaborazione AI delle informazioni ufficiali d’archivio per
-                    il livello <strong>{LEVEL_LABELS[userLevel]}</strong> in
-                    corso…
-                  </p>
-                )}
-
-                {!narrationLoading && narrationFallback && (
-                  <div className="space-y-4">
-                    <div className="flex items-start gap-3 text-base font-medium text-gold-deep">
-                      <Info
-                        className="mt-0.5 h-5 w-5 shrink-0"
-                        aria-hidden="true"
-                      />
+              {/* 1. UNIFIED AI DESCRIPTION + NEURAL ITALIAN AUDIO GUIDE */}
+              <RevealOnScroll delayMs={80}>
+                <section
+                  aria-labelledby="ai-description-heading"
+                  className="museum-rule space-y-7 pt-10"
+                >
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2.5 text-sm font-semibold uppercase tracking-[0.18em] text-gold-deep">
+                      <Sparkles className="h-5 w-5" aria-hidden="true" />
                       <span>
-                        Servizio AI temporaneamente non disponibile: mostriamo
-                        direttamente la descrizione ufficiale certificata
-                        dell’archivio.
+                        Elaborazione AI dagli archivi ufficiali · Livello{" "}
+                        {LEVEL_LABELS[userLevel]}
                       </span>
                     </div>
-                    <p className="text-xl leading-[1.8] text-ink">
-                      {opera.descrizione_ufficiale}
-                    </p>
+                    <h2
+                      id="ai-description-heading"
+                      className="font-serif text-4xl font-semibold text-ink sm:text-5xl"
+                    >
+                      Descrizione completa dell’opera
+                    </h2>
                   </div>
-                )}
 
-                {!narrationLoading && narration && (
-                  <div className="space-y-6">
-                    <div className="space-y-5 text-xl leading-[1.8] text-ink">
-                      {narration.testo_lettura.split("\n\n").map((para, idx) => (
-                        <p key={idx}>{para}</p>
-                      ))}
+                  {speech.supported && audioScriptText && !narrationLoading && (
+                    <div
+                      aria-label="Audioguida in italiano"
+                      className="space-y-4 border-y border-gold-light/70 py-5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <div className="mr-1 flex items-center gap-2 text-base font-semibold text-ink">
+                            <Volume2
+                              className="h-5 w-5 text-gold-deep"
+                              aria-hidden="true"
+                            />
+                            <span>Audioguida italiana</span>
+                            {speech.status === "playing" && (
+                              <span
+                                aria-hidden="true"
+                                className="ml-1 inline-flex h-4 items-end gap-0.5"
+                              >
+                                <span className="audio-eq-bar h-3.5 w-1 rounded-full bg-gold-deep" />
+                                <span
+                                  className="audio-eq-bar h-4 w-1 rounded-full bg-gold-deep"
+                                  style={{ animationDelay: "180ms" }}
+                                />
+                                <span
+                                  className="audio-eq-bar h-2.5 w-1 rounded-full bg-gold-deep"
+                                  style={{ animationDelay: "340ms" }}
+                                />
+                              </span>
+                            )}
+                          </div>
+
+                          {speech.status === "idle" && (
+                            <button
+                              type="button"
+                              onClick={() => speech.play(audioScriptText)}
+                              className="btn-museum-primary"
+                            >
+                              <Play className="h-5 w-5" aria-hidden="true" />
+                              <span>Ascolta</span>
+                            </button>
+                          )}
+
+                          {speech.status === "loading" && (
+                            <button
+                              type="button"
+                              disabled
+                              className="btn-museum-primary"
+                            >
+                              <Loader2
+                                className="h-5 w-5 animate-spin"
+                                aria-hidden="true"
+                              />
+                              <span>Preparazione voce…</span>
+                            </button>
+                          )}
+
+                          {speech.status === "playing" && (
+                            <button
+                              type="button"
+                              onClick={speech.pause}
+                              className="btn-museum-primary"
+                            >
+                              <Pause className="h-5 w-5" aria-hidden="true" />
+                              <span>Pausa</span>
+                            </button>
+                          )}
+
+                          {speech.status === "paused" && (
+                            <button
+                              type="button"
+                              onClick={speech.resume}
+                              className="btn-museum-primary"
+                            >
+                              <Play className="h-5 w-5" aria-hidden="true" />
+                              <span>Riprendi</span>
+                            </button>
+                          )}
+
+                          {speech.status !== "idle" && (
+                            <button
+                              type="button"
+                              onClick={speech.stop}
+                              className="btn-museum-secondary"
+                            >
+                              <Square className="h-4 w-4" aria-hidden="true" />
+                              <span>Ferma</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Refined Voice Selector */}
+                        <div className="flex flex-wrap items-center gap-3 text-sm">
+                          <VoicePickerDropdown
+                            voices={speech.voices}
+                            value={speech.selectedVoiceId}
+                            onChange={(nextVoice) => {
+                              if (nextVoice === speech.selectedVoiceId) return;
+                              speech.selectVoice(nextVoice);
+                              if (
+                                speech.status === "playing" ||
+                                speech.status === "loading"
+                              ) {
+                                speech.play(audioScriptText, nextVoice);
+                              } else if (speech.status === "paused") {
+                                speech.stop();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      {speech.status !== "idle" && (
+                        <div className="space-y-1.5">
+                          <div
+                            role="progressbar"
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuenow={speech.progress}
+                            aria-label={`Avanzamento lettura: ${speech.progress}%`}
+                            className="h-1.5 w-full overflow-hidden rounded-full bg-gold-light/45"
+                          >
+                            <div
+                              className="h-full rounded-full bg-gold-deep transition-all duration-200"
+                              style={{ width: `${Math.max(3, speech.progress)}%` }}
+                            />
+                          </div>
+                          {speech.engineMode === "neural" && speech.durationSec > 0 && (
+                            <div className="flex justify-between text-xs font-medium text-ink-muted">
+                              <span>{formatAudioTime(speech.currentTimeSec)}</span>
+                              <span>{formatAudioTime(speech.durationSec)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
+                  )}
 
-                    {narration.curiosita && (
-                      <div className="border-l-4 border-gold-deep pl-6">
-                        <p className="text-sm font-semibold uppercase tracking-[0.16em] text-gold-deep">
-                          Curiosità dagli archivi
-                        </p>
-                        <p className="mt-1.5 text-lg leading-relaxed text-ink-secondary">
-                          {narration.curiosita}
-                        </p>
-                      </div>
-                    )}
+                  {narrationLoading && (
+                    <p className="text-xl text-ink-secondary">
+                      Elaborazione AI delle informazioni ufficiali d’archivio per
+                      il livello <strong>{LEVEL_LABELS[userLevel]}</strong> in
+                      corso…
+                    </p>
+                  )}
 
-                    {/* Concise grounded archival document citation or explicit absence note */}
-                    {opera.documento_archivio ? (
-                      <div className="space-y-2 border-t border-gold-light/60 pt-5 text-base text-ink-secondary">
-                        <p>
-                          <strong className="font-semibold text-gold-deep">
-                            Documento d’archivio di riferimento:{" "}
-                          </strong>
-                          {opera.documento_archivio.titolo} (
-                          {opera.documento_archivio.datazione}) —{" "}
-                          {opera.documento_archivio.fondo},{" "}
-                          <span className="font-medium text-ink">
-                            {opera.documento_archivio.segnatura}
-                          </span>{" "}
-                          ({opera.documento_archivio.ente_conservazione})
-                        </p>
-                        <blockquote className="font-serif text-xl italic text-ink">
-                          “{opera.documento_archivio.estratto_verificato}”
-                        </blockquote>
-                      </div>
-                    ) : (
-                      <p className="flex items-start gap-2.5 border-t border-gold-light/60 pt-5 text-base text-ink-muted">
-                        <FileWarning
-                          className="mt-0.5 h-5 w-5 shrink-0 text-gold-deep"
+                  {!narrationLoading && narrationFallback && (
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3 text-base font-medium text-gold-deep">
+                        <Info
+                          className="mt-0.5 h-5 w-5 shrink-0"
                           aria-hidden="true"
                         />
                         <span>
-                          Nota d’archivio: questo bene culturale non possiede un
-                          documento cartaceo collegato; le informazioni si
-                          basano sul catalogo ufficiale verificato.
+                          Servizio AI temporaneamente non disponibile: mostriamo
+                          direttamente la descrizione ufficiale certificata
+                          dell’archivio.
                         </span>
+                      </div>
+                      <p className="text-xl leading-[1.8] text-ink">
+                        {opera.descrizione_ufficiale}
                       </p>
-                    )}
+                    </div>
+                  )}
 
-                    {narration.fonti_citate.length > 0 && (
-                      <p className="text-sm text-ink-muted">
-                        <span className="font-semibold text-gold-deep">
-                          Fonti citate dall’AI:{" "}
-                        </span>
-                        {narration.fonti_citate.join(" · ")}
-                      </p>
-                    )}
+                  {!narrationLoading && narration && (
+                    <div className="space-y-6">
+                      <div className="space-y-5 text-xl leading-[1.8] text-ink">
+                        {narration.testo_lettura.split("\n\n").map((para, idx) => (
+                          <p key={idx}>{para}</p>
+                        ))}
+                      </div>
+
+                      {narration.curiosita && (
+                        <div className="border-l-4 border-gold-deep pl-6">
+                          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-gold-deep">
+                            Curiosità dagli archivi
+                          </p>
+                          <p className="mt-1.5 text-lg leading-relaxed text-ink-secondary">
+                            {narration.curiosita}
+                          </p>
+                        </div>
+                      )}
+
+                      {opera.documento_archivio ? (
+                        <div className="space-y-2 border-t border-gold-light/60 pt-5 text-base text-ink-secondary">
+                          <p>
+                            <strong className="font-semibold text-gold-deep">
+                              Documento d’archivio di riferimento:{" "}
+                            </strong>
+                            {opera.documento_archivio.titolo} (
+                            {opera.documento_archivio.datazione}) —{" "}
+                            {opera.documento_archivio.fondo},{" "}
+                            <span className="font-medium text-ink">
+                              {opera.documento_archivio.segnatura}
+                            </span>{" "}
+                            ({opera.documento_archivio.ente_conservazione})
+                          </p>
+                          <blockquote className="font-serif text-xl italic text-ink">
+                            “{opera.documento_archivio.estratto_verificato}”
+                          </blockquote>
+                        </div>
+                      ) : (
+                        <p className="flex items-start gap-2.5 border-t border-gold-light/60 pt-5 text-base text-ink-muted">
+                          <FileWarning
+                            className="mt-0.5 h-5 w-5 shrink-0 text-gold-deep"
+                            aria-hidden="true"
+                          />
+                          <span>
+                            Nota d’archivio: questo bene culturale non possiede un
+                            documento cartaceo collegato; le informazioni si
+                            basano sul catalogo ufficiale verificato.
+                          </span>
+                        </p>
+                      )}
+
+                      {narration.fonti_citate.length > 0 && (
+                        <p className="text-sm text-ink-muted">
+                          <span className="font-semibold text-gold-deep">
+                            Fonti citate dall’AI:{" "}
+                          </span>
+                          {narration.fonti_citate.join(" · ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </section>
+              </RevealOnScroll>
+
+              {/* 2. CONNESSIONI STORICO-CULTURALI */}
+              <RevealOnScroll delayMs={100}>
+                <section
+                  aria-labelledby="connections-heading"
+                  className="museum-rule space-y-7 pt-10"
+                >
+                  <div className="space-y-2">
+                    <h2
+                      id="connections-heading"
+                      className="font-serif text-4xl font-semibold text-ink sm:text-5xl"
+                    >
+                      Connessioni storico-culturali
+                    </h2>
+                    <p className="text-lg text-ink-secondary">
+                      Esplora lo schema visivo dei legami storici, tematici e
+                      territoriali individuati dall’AI fino a tre opere correlate.
+                    </p>
                   </div>
-                )}
-              </section>
 
-              {/* 2. CONNESSIONI STORICO-CULTURALI (Visual Schema + Links) */}
-              <section
-                aria-labelledby="connections-heading"
-                className="museum-rule space-y-7 pt-10"
-              >
-                <div className="space-y-2">
-                  <h2
-                    id="connections-heading"
-                    className="font-serif text-4xl font-semibold text-ink sm:text-5xl"
-                  >
-                    Connessioni storico-culturali
-                  </h2>
-                  <p className="text-lg text-ink-secondary">
-                    Esplora lo schema visivo dei legami storici, tematici e
-                    territoriali individuati dall’AI fino a tre opere correlate.
-                  </p>
-                </div>
+                  {relatedLoading && (
+                    <p className="text-xl text-ink-secondary">
+                      Elaborazione dello schema delle connessioni in corso…
+                    </p>
+                  )}
 
-                {relatedLoading && (
-                  <p className="text-xl text-ink-secondary">
-                    Elaborazione dello schema delle connessioni in corso…
-                  </p>
-                )}
+                  {!relatedLoading && relatedError && (
+                    <p className="text-lg font-medium text-[#8A3727]">
+                      {relatedError}
+                    </p>
+                  )}
 
-                {!relatedLoading && relatedError && (
-                  <p className="text-lg font-medium text-[#8A3727]">
-                    {relatedError}
-                  </p>
-                )}
-
-                {!relatedLoading && !relatedError && (
-                  <ConnectionsGraph
-                    sourceOpera={opera}
-                    connections={related}
-                  />
-                )}
-              </section>
+                  {!relatedLoading && !relatedError && (
+                    <ConnectionsGraph
+                      sourceOpera={opera}
+                      connections={related}
+                    />
+                  )}
+                </section>
+              </RevealOnScroll>
             </article>
 
             {/* 3. RIGHT STICKY SIDEBAR: CHIEDI SULL'OPERA */}
             <div className="border-t border-gold-light/70 pt-10 lg:col-span-4 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0 xl:pl-12">
               <div className="lg:sticky lg:top-28">
-                <OperaQaSection operaId={opera.id} livello={userLevel} />
+                <RevealOnScroll immediate delayMs={220}>
+                  <OperaQaSection operaId={opera.id} livello={userLevel} />
+                </RevealOnScroll>
               </div>
             </div>
           </div>

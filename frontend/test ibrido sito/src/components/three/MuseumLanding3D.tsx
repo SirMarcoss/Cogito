@@ -19,6 +19,9 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
   const smoothProgressRef = useRef(0);
   const pointerRef = useRef({ x: 0, y: 0 });
   const enteredRef = useRef(false);
+  const enterTimeoutRef = useRef<number | null>(null);
+  const onEnterRef = useRef(onEnter);
+  onEnterRef.current = onEnter;
 
   const [webglUnsupported, setWebglUnsupported] = useState(false);
   const [fadeOpacity, setFadeOpacity] = useState(0);
@@ -29,13 +32,14 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
     enteredRef.current = true;
     setFadeOpacity(1);
 
-    window.setTimeout(() => {
+    enterTimeoutRef.current = window.setTimeout(() => {
+      enterTimeoutRef.current = null;
       handleRef.current?.dispose();
       handleRef.current = null;
       window.scrollTo({ top: 0, behavior: "auto" });
-      onEnter();
+      onEnterRef.current();
     }, 340);
-  }, [onEnter]);
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -124,6 +128,10 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
 
     return () => {
       window.cancelAnimationFrame(rafId);
+      if (enterTimeoutRef.current !== null) {
+        window.clearTimeout(enterTimeoutRef.current);
+        enterTimeoutRef.current = null;
+      }
       window.removeEventListener("scroll", updateScrollTarget);
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("pointermove", handlePointerMove);

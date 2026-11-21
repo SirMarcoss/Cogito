@@ -228,6 +228,7 @@ function createArchedPageGeometry(
   width: number,
   height: number,
   side: "left" | "right",
+  archAmp = 0.04,
 ): THREE.BufferGeometry {
   const geo = new THREE.PlaneGeometry(width, height, 24, 4);
   geo.rotateX(-Math.PI / 2);
@@ -235,13 +236,14 @@ function createArchedPageGeometry(
   const pos = geo.attributes.position;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i); // ranges -width/2 to +width/2
-    // Normalized distance from spine (0 at spine -> 1 at outer fore-edge)
-    const u =
-      side === "right"
-        ? (x + width / 2) / width
-        : (width / 2 - x) / width;
-    // Smooth book-page arch peaking near u = 0.35 and dipping into the central spine gutter
-    const archY = Math.sin(Math.pow(u, 0.72) * Math.PI) * 0.22;
+    // Clamp normalized distance from spine (0 at spine -> 1 at outer fore-edge) to avoid negative float-epsilon NaN
+    const u = THREE.MathUtils.clamp(
+      side === "right" ? (x + width / 2) / width : (width / 2 - x) / width,
+      0,
+      1,
+    );
+    // Smooth book-page arch peaking gracefully without clipping cover boards or sibling leaves
+    const archY = Math.sin(Math.pow(u, 0.72) * Math.PI) * archAmp;
     pos.setY(i, archY);
   }
   geo.computeVertexNormals();
@@ -305,7 +307,6 @@ export function buildArchiveBookScene(
   const coverW = 2.85;
   const coverH = 3.8;
   const boardThick = 0.095;
-  const pagesThick = 0.48;
 
   const frontCoverTex = createFrontCoverTexture();
   const leftPageTex = createIlluminatedPageTexture(true);
@@ -354,37 +355,38 @@ export function buildArchiveBookScene(
     side: THREE.DoubleSide,
   });
 
-  // 1. Back cover board
+  // 1. Back cover board (rests cleanly at local y ∈ [0.000, 0.095])
   const backCover = new THREE.Mesh(
     new THREE.BoxGeometry(coverW, boardThick, coverH),
     boardMat,
   );
-  backCover.position.set(coverW / 2, -pagesThick / 2 - boardThick / 2, 0);
+  backCover.position.set(coverW / 2, boardThick / 2, 0);
   backCover.castShadow = true;
   backCover.receiveShadow = true;
   bookRoot.add(backCover);
 
-  // 2. Right page stack (gilded fore-edges)
+  // 2. Right page stack (y ∈ [0.095, 0.305])
   const rightPageBlock = new THREE.Mesh(
-    new THREE.BoxGeometry(coverW - 0.16, pagesThick * 0.52, coverH - 0.2),
+    new THREE.BoxGeometry(coverW - 0.16, 0.21, coverH - 0.2),
     gildedEdgeMat,
   );
-  rightPageBlock.position.set((coverW - 0.16) / 2 + 0.03, -pagesThick * 0.23, 0);
+  rightPageBlock.position.set((coverW - 0.16) / 2 + 0.04, boardThick + 0.105, 0);
   rightPageBlock.castShadow = true;
   rightPageBlock.receiveShadow = true;
   bookRoot.add(rightPageBlock);
 
-  // Curved organic right open page surface resting on top of the right block
+  // Curved organic right open page surface strictly on top of right block (y = 0.308)
   const rightArchedPage = new THREE.Mesh(
-    createArchedPageGeometry(coverW - 0.18, coverH - 0.22, "right"),
+    createArchedPageGeometry(coverW - 0.18, coverH - 0.22, "right", 0.042),
     rightPageMat,
   );
-  rightArchedPage.position.set((coverW - 0.18) / 2 + 0.03, 0.035, 0);
+  rightArchedPage.position.set((coverW - 0.18) / 2 + 0.04, boardThick + 0.213, 0);
   rightArchedPage.receiveShadow = true;
   bookRoot.add(rightArchedPage);
 
-  // 3. Rounded leather-vellum spine with 5 sculpted brass raised ribs
-  const spineRadius = (pagesThick + boardThick * 2) / 2;
+  // 3. Rounded leather-vellum spine centered vertically around spine center y = 0.310
+  const spineRadius = 0.31;
+  const spineCenterY = 0.31;
   const spineMesh = new THREE.Mesh(
     new THREE.CylinderGeometry(
       spineRadius,
@@ -399,6 +401,7 @@ export function buildArchiveBookScene(
     boardMat,
   );
   spineMesh.rotation.x = Math.PI / 2;
+  spineMesh.position.set(0, spineCenterY, 0);
   spineMesh.castShadow = true;
   bookRoot.add(spineMesh);
 
@@ -409,16 +412,16 @@ export function buildArchiveBookScene(
     );
     band.rotation.y = Math.PI / 2;
     band.rotation.z = Math.PI / 2;
-    band.position.set(0, 0, i * 0.66);
+    band.position.set(0, spineCenterY, i * 0.66);
     bookRoot.add(band);
   }
 
-  // Silk bookmark ribbon emerging gracefully from the bottom of the spine
+  // Silk bookmark ribbon emerging cleanly from spine bottom onto desk
   const ribbonCurve = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(0.08, -0.08, coverH / 2 - 0.1),
-    new THREE.Vector3(0.18, -0.2, coverH / 2 + 0.35),
-    new THREE.Vector3(0.42, -0.32, coverH / 2 + 0.78),
-    new THREE.Vector3(0.62, -0.34, coverH / 2 + 1.05),
+    new THREE.Vector3(0.08, 0.24, coverH / 2 - 0.1),
+    new THREE.Vector3(0.18, 0.12, coverH / 2 + 0.35),
+    new THREE.Vector3(0.42, 0.01, coverH / 2 + 0.78),
+    new THREE.Vector3(0.62, -0.01, coverH / 2 + 1.05),
   ]);
   const ribbonGeo = new THREE.TubeGeometry(ribbonCurve, 18, 0.045, 6, false);
   ribbonGeo.scale(1.6, 0.22, 1);
@@ -426,9 +429,9 @@ export function buildArchiveBookScene(
   silkRibbon.castShadow = true;
   bookRoot.add(silkRibbon);
 
-  // 4. Front cover hinge group
+  // 4. Front cover hinge group at y = 0.325 (strictly clear of rightArchedPage whether closed or open)
   const frontHinge = new THREE.Group();
-  frontHinge.position.set(0, pagesThick / 2 + boardThick / 2, 0);
+  frontHinge.position.set(0, 0.325, 0);
   bookRoot.add(frontHinge);
 
   const frontCoverMats: THREE.Material[] = [
@@ -443,12 +446,12 @@ export function buildArchiveBookScene(
     new THREE.BoxGeometry(coverW, boardThick, coverH),
     frontCoverMats,
   );
-  frontCoverMesh.position.set(coverW / 2, 0, 0);
+  frontCoverMesh.position.set(coverW / 2, 0.268, 0);
   frontCoverMesh.castShadow = true;
   frontCoverMesh.receiveShadow = true;
   frontHinge.add(frontCoverMesh);
 
-  // 4 Sculpted brass corner protectors on the front cover
+  // 4 Sculpted brass corner protectors mounted strictly on frontCoverMesh
   const cornerPositions: Array<[number, number]> = [
     [coverW - 0.14, -coverH / 2 + 0.14],
     [coverW - 0.14, coverH / 2 - 0.14],
@@ -457,55 +460,47 @@ export function buildArchiveBookScene(
   ];
   cornerPositions.forEach(([cx, cz]) => {
     const corner = new THREE.Mesh(
-      new THREE.BoxGeometry(0.32, boardThick + 0.03, 0.32),
+      new THREE.BoxGeometry(0.32, boardThick + 0.025, 0.32),
       goldBrassMat,
     );
-    corner.position.set(cx, 0.005, cz);
+    corner.position.set(cx, 0.272, cz);
     frontHinge.add(corner);
   });
 
   // Sculpted brass fore-edge book clasp
   const claspPlate = new THREE.Mesh(
-    new THREE.BoxGeometry(0.28, boardThick + 0.04, 0.44),
+    new THREE.BoxGeometry(0.28, boardThick + 0.032, 0.44),
     goldBrassMat,
   );
-  claspPlate.position.set(coverW - 0.08, 0.01, 0);
+  claspPlate.position.set(coverW - 0.08, 0.275, 0);
   frontHinge.add(claspPlate);
 
-  // Left page block (unfolds with front cover)
+  // Left page block strictly between cover board and page surface (unfolds flat beside right block)
   const leftPageBlock = new THREE.Mesh(
-    new THREE.BoxGeometry(coverW - 0.16, pagesThick * 0.44, coverH - 0.2),
+    new THREE.BoxGeometry(coverW - 0.16, 0.2, coverH - 0.2),
     gildedEdgeMat,
   );
-  leftPageBlock.position.set(
-    (coverW - 0.16) / 2 + 0.03,
-    -boardThick / 2 - pagesThick * 0.22,
-    0,
-  );
+  leftPageBlock.position.set((coverW - 0.16) / 2 + 0.04, 0.118, 0);
   leftPageBlock.castShadow = true;
   frontHinge.add(leftPageBlock);
 
-  // Curved organic left open page visible once opened
+  // Curved organic left open page visible cleanly once book begins opening
   const leftArchedPage = new THREE.Mesh(
-    createArchedPageGeometry(coverW - 0.18, coverH - 0.22, "right"),
+    createArchedPageGeometry(coverW - 0.18, coverH - 0.22, "left", 0.034),
     leftPageMat,
   );
   leftArchedPage.rotation.z = Math.PI;
-  leftArchedPage.position.set(
-    (coverW - 0.18) / 2 + 0.03,
-    -boardThick / 2 - pagesThick * 0.445,
-    0,
-  );
+  leftArchedPage.position.set((coverW - 0.18) / 2 + 0.04, 0.015, 0);
   frontHinge.add(leftArchedPage);
 
-  // Extra turning leaf that gracefully sweeps across as the book opens
+  // Extra turning leaf strictly clamped behind cover & above open spreads (zero clipping)
   const turningLeafPivot = new THREE.Group();
-  turningLeafPivot.position.set(0, 0.04, 0);
+  turningLeafPivot.position.set(0, 0.322, 0);
   const turningLeaf = new THREE.Mesh(
-    createArchedPageGeometry(coverW - 0.2, coverH - 0.24, "right"),
+    createArchedPageGeometry(coverW - 0.22, coverH - 0.24, "right", 0.03),
     rightPageMat,
   );
-  turningLeaf.position.x = (coverW - 0.2) / 2 + 0.03;
+  turningLeaf.position.x = (coverW - 0.22) / 2 + 0.045;
   turningLeafPivot.add(turningLeaf);
   bookRoot.add(turningLeafPivot);
 
@@ -526,22 +521,26 @@ export function buildArchiveBookScene(
     currentHover += (targetHover - currentHover) * Math.min(1, dt * 8.0);
 
     // Smooth cover swing (0 -> ~170 degrees)
-    frontHinge.rotation.z = THREE.MathUtils.lerp(0, Math.PI * 0.94, currentOpen);
+    const coverAngle = THREE.MathUtils.lerp(0, Math.PI * 0.94, currentOpen);
+    frontHinge.rotation.z = coverAngle;
+    leftArchedPage.visible = coverAngle > 0.22;
 
-    // Turning leaf gracefully lags behind the cover for natural page-turn realism
+    // Turning leaf strictly lags behind the front cover so it never penetrates cover or left spread
     const leafProgress = Math.min(1, Math.max(0, (currentOpen - 0.18) / 0.72));
-    turningLeafPivot.rotation.z = THREE.MathUtils.lerp(
-      0,
-      Math.PI * 0.91,
-      leafProgress * leafProgress * (3 - 2 * leafProgress),
+    const leafEase = leafProgress * leafProgress * (3 - 2 * leafProgress);
+    const leafRaw = THREE.MathUtils.lerp(0.02, Math.PI * 0.91, leafEase);
+    turningLeafPivot.rotation.z = Math.max(
+      0.02,
+      Math.min(leafRaw, coverAngle - 0.3),
     );
-    turningLeafPivot.visible = currentOpen > 0.05;
+    turningLeafPivot.visible = coverAngle > 0.38 && currentOpen > 0.18;
 
     // Keep book perfectly centered whether closed or open spread
     bookRoot.position.x = THREE.MathUtils.lerp(-coverW / 2, 0, currentOpen);
 
     const idleFloat = Math.sin(now * 0.0018) * 0.035 * (1 - currentOpen * 0.65);
-    bookRoot.position.y = idleFloat + currentHover * 0.14 + currentOpen * 0.16;
+    bookRoot.position.y =
+      -0.33 + idleFloat + currentHover * 0.14 + currentOpen * 0.16;
     bookRoot.rotation.x =
       THREE.MathUtils.lerp(0.18, 0.3, currentOpen) - currentHover * 0.05;
     bookRoot.rotation.y =

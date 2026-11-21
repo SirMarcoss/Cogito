@@ -855,12 +855,12 @@ export async function mockFetchNearbyOpere(params: {
 
   const fallbackItems = computeWithinRadius(CATANIA_LAT, CATANIA_LNG);
   return {
-    user_lat: CATANIA_LAT,
-    user_lng: CATANIA_LNG,
+    user_lat: params.lat,
+    user_lng: params.lng,
     radius_km: radius,
     fallback_used: true,
     fallback_message:
-      "Nessun bene censito entro 20 km dalla tua posizione attuale: mostriamo il patrimonio culturale di Catania.",
+      `Nessun bene censito entro ${radius} km dalla tua posizione attuale: mostriamo il patrimonio culturale di Catania.`,
     total: fallbackItems.length,
     items: fallbackItems,
   };

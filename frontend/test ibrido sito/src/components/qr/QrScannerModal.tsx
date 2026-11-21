@@ -16,6 +16,9 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
   const readerElementId = useId().replace(/:/g, "");
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const cameraTabRef = useRef<HTMLButtonElement | null>(null);
+  const manualTabRef = useRef<HTMLButtonElement | null>(null);
 
   const [tab, setTab] = useState<ScanTab>("camera");
   const [manualCode, setManualCode] = useState("");
@@ -112,7 +115,22 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
         if (!cancelled) {
           setCameraReady(true);
         } else {
-          await stopCameraSafely();
+          // Stop the local instance directly even if scannerRef was nulled during cancellation
+          if (scannerRef.current === scanner) {
+            scannerRef.current = null;
+          }
+          try {
+            if (scanner.isScanning) {
+              await scanner.stop();
+            }
+          } catch {
+            // Ignore stop failures on late cleanup
+          }
+          try {
+            scanner.clear();
+          } catch {
+            // Ignore clear failures
+          }
         }
       } catch {
         if (!cancelled) {
@@ -136,9 +154,13 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
   }, [open, tab, readerElementId, navigateWithCode, stopCameraSafely]);
 
   useEffect(() => {
-    if (open && tab === "manual") {
-      window.setTimeout(() => manualInputRef.current?.focus(), 60);
+    if (!open) return;
+    if (tab === "manual") {
+      const t = window.setTimeout(() => manualInputRef.current?.focus(), 60);
+      return () => window.clearTimeout(t);
     }
+    const t = window.setTimeout(() => closeButtonRef.current?.focus(), 60);
+    return () => window.clearTimeout(t);
   }, [open, tab]);
 
   if (!open) return null;
@@ -147,6 +169,15 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
     e.preventDefault();
     setManualError(null);
     void navigateWithCode(manualCode);
+  };
+
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+      e.preventDefault();
+      const nextTab: ScanTab = tab === "camera" ? "manual" : "camera";
+      setTab(nextTab);
+      (nextTab === "camera" ? cameraTabRef.current : manualTabRef.current)?.focus();
+    }
   };
 
   return (
@@ -174,6 +205,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
           </div>
 
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={() => void stopCameraSafely().then(onClose)}
             aria-label="Chiudi finestra QR"
@@ -189,9 +221,13 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
           className="mt-5 flex gap-3"
         >
           <button
+            ref={cameraTabRef}
+            id="qr-tab-camera"
             type="button"
             role="tab"
             aria-selected={tab === "camera"}
+            aria-controls="qr-panel-camera"
+            onKeyDown={handleTabKeyDown}
             onClick={() => setTab("camera")}
             className={`inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full px-5 text-base font-semibold transition ${
               tab === "camera"
@@ -204,9 +240,13 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
           </button>
 
           <button
+            ref={manualTabRef}
+            id="qr-tab-manual"
             type="button"
             role="tab"
             aria-selected={tab === "manual"}
+            aria-controls="qr-panel-manual"
+            onKeyDown={handleTabKeyDown}
             onClick={() => setTab("manual")}
             className={`inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-full px-5 text-base font-semibold transition ${
               tab === "manual"
@@ -220,7 +260,12 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
         </div>
 
         {tab === "camera" && (
-          <div className="mt-6 space-y-4">
+          <div
+            id="qr-panel-camera"
+            role="tabpanel"
+            aria-labelledby="qr-tab-camera"
+            className="mt-6 space-y-4"
+          >
             <div className="relative overflow-hidden rounded-2xl border border-gold-light bg-panna-soft">
               <div
                 id={readerElementId}
@@ -257,7 +302,13 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
         )}
 
         {tab === "manual" && (
-          <form onSubmit={handleManualSubmit} className="mt-6 space-y-5">
+          <form
+            id="qr-panel-manual"
+            role="tabpanel"
+            aria-labelledby="qr-tab-manual"
+            onSubmit={handleManualSubmit}
+            className="mt-6 space-y-5"
+          >
             <div>
               <label
                 htmlFor="modal-manual-qr-input"
@@ -277,7 +328,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
                 placeholder="Es. COG-001"
                 autoComplete="off"
                 autoCapitalize="characters"
-                className="mt-2 min-h-[56px] w-full border-b-2 border-gold-deep/60 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none"
+                className="mt-2 min-h-[56px] w-full border-b-2 border-gold-deep/60 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
               />
               {manualError && (
                 <p className="mt-2 text-base font-medium text-[#8A3727]">

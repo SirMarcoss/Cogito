@@ -36,7 +36,9 @@ function resolveInitialMode(): DataMode {
   return "auto";
 }
 
-let activeMode: DataMode = resolveInitialMode();
+const INITIAL_MODE: DataMode = resolveInitialMode();
+let mockFallbackUntil = 0;
+const FALLBACK_COOLDOWN_MS = 30000;
 
 async function parseErrorResponse(res: Response): Promise<ApiError> {
   try {
@@ -95,11 +97,19 @@ async function requestWithFallback<T>(
   },
   mockFn: () => Promise<T>,
 ): Promise<T> {
-  if (activeMode === "mock") {
+  if (options.signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+
+  if (INITIAL_MODE === "mock") {
     return mockFn();
   }
 
-  const timeoutMs = options.timeoutMs ?? (activeMode === "auto" ? 2000 : 12000);
+  if (INITIAL_MODE === "auto" && Date.now() < mockFallbackUntil) {
+    return mockFn();
+  }
+
+  const timeoutMs = options.timeoutMs ?? (INITIAL_MODE === "auto" ? 2000 : 12000);
   const { signal, cleanup } = mergeAbortSignals(options.signal, timeoutMs);
 
   try {
@@ -113,14 +123,14 @@ async function requestWithFallback<T>(
     const contentType = res.headers.get("content-type") ?? "";
     const isJson = contentType.includes("application/json");
 
-    if (activeMode === "auto") {
+    if (INITIAL_MODE === "auto") {
       // Only treat non-JSON proxy errors (e.g. Vite proxy ECONNREFUSED 500/502/504) as unreachable backend.
       if (!isJson && !res.ok) {
-        activeMode = "mock";
+        mockFallbackUntil = Date.now() + FALLBACK_COOLDOWN_MS;
         return mockFn();
       }
       if (isJson) {
-        activeMode = "live";
+        mockFallbackUntil = 0;
       }
     }
 
@@ -130,14 +140,14 @@ async function requestWithFallback<T>(
 
     return (await res.json()) as T;
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError" && options.signal?.aborted) {
-      throw err;
+    if (options.signal?.aborted) {
+      throw err instanceof Error ? err : new DOMException("Aborted", "AbortError");
     }
     if (err instanceof ApiError) {
       throw err;
     }
-    if (activeMode === "auto") {
-      activeMode = "mock";
+    if (INITIAL_MODE === "auto") {
+      mockFallbackUntil = Date.now() + FALLBACK_COOLDOWN_MS;
       return mockFn();
     }
     throw new ApiError(
@@ -150,13 +160,16 @@ async function requestWithFallback<T>(
   }
 }
 
-export function fetchOpere(params?: {
-  search?: string;
-  categoria?: CategoriaOpera | null;
-  ente_id?: number | null;
-  limit?: number;
-  offset?: number;
-}): Promise<OperaListResponse> {
+export function fetchOpere(
+  params?: {
+    search?: string;
+    categoria?: CategoriaOpera | null;
+    ente_id?: number | null;
+    limit?: number;
+    offset?: number;
+  },
+  signal?: AbortSignal,
+): Promise<OperaListResponse> {
   const sp = new URLSearchParams();
   if (params?.search?.trim()) sp.set("search", params.search.trim());
   if (params?.categoria) sp.set("categoria", params.categoria);
@@ -168,17 +181,20 @@ export function fetchOpere(params?: {
 
   return requestWithFallback(
     `/opere?${sp.toString()}`,
-    { method: "GET" },
+    { method: "GET", signal },
     () => mockFetchOpere(params),
   );
 }
 
-export function fetchNearbyOpere(params: {
-  lat: number;
-  lng: number;
-  radius_km?: number;
-  categoria?: CategoriaOpera | null;
-}): Promise<NearbyResponse> {
+export function fetchNearbyOpere(
+  params: {
+    lat: number;
+    lng: number;
+    radius_km?: number;
+    categoria?: CategoriaOpera | null;
+  },
+  signal?: AbortSignal,
+): Promise<NearbyResponse> {
   const sp = new URLSearchParams();
   sp.set("lat", String(params.lat));
   sp.set("lng", String(params.lng));
@@ -187,24 +203,30 @@ export function fetchNearbyOpere(params: {
 
   return requestWithFallback(
     `/opere/nearby?${sp.toString()}`,
-    { method: "GET" },
+    { method: "GET", signal },
     () => mockFetchNearbyOpere(params),
   );
 }
 
-export function fetchOperaById(operaId: number): Promise<OperaDetailOut> {
+export function fetchOperaById(
+  operaId: number,
+  signal?: AbortSignal,
+): Promise<OperaDetailOut> {
   return requestWithFallback(
     `/opere/${operaId}`,
-    { method: "GET" },
+    { method: "GET", signal },
     () => mockFetchOperaById(operaId),
   );
 }
 
-export function fetchOperaByQr(qrCode: string): Promise<OperaDetailOut> {
+export function fetchOperaByQr(
+  qrCode: string,
+  signal?: AbortSignal,
+): Promise<OperaDetailOut> {
   const normalized = qrCode.trim().toUpperCase();
   return requestWithFallback(
     `/qr/${encodeURIComponent(normalized)}`,
-    { method: "GET" },
+    { method: "GET", signal },
     () => mockFetchOperaByQr(normalized),
   );
 }
@@ -238,10 +260,11 @@ export function fetchOperaRelated(
 export function askOperaQuestion(
   operaId: number,
   payload: AskRequest,
+  signal?: AbortSignal,
 ): Promise<AskResponse> {
   return requestWithFallback(
     `/opere/${operaId}/ask`,
-    { method: "POST", body: payload, timeoutMs: 15000 },
+    { method: "POST", body: payload, signal, timeoutMs: 15000 },
     () => mockAskOperaQuestion(operaId, payload),
   );
 }

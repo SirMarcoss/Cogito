@@ -36,7 +36,7 @@ export function RevealOnScroll({
     const checkVisibility = () => {
       const rect = el.getBoundingClientRect();
       const vh = window.innerHeight || 800;
-      if (rect.top <= vh * 0.9 && rect.bottom >= 0) {
+      if (rect.top <= vh * 0.9) {
         setVisible(true);
       } else if (rect.top > vh + 80) {
         // Re-arm cleanly if scrolled back above so section glides in smoothly again

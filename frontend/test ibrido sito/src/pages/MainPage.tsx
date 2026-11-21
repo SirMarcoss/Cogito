@@ -5,7 +5,7 @@ import {
   QrCode,
   RefreshCw,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { HeritageMap } from "../components/explore/HeritageMap";
 import { QrScanIllustration } from "../components/qr/QrScanIllustration";
@@ -109,8 +109,23 @@ export function MainPage({
   const [nearbyData, setNearbyData] = useState<NearbyResponse | null>(null);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [nearbyError, setNearbyError] = useState<string | null>(null);
+  const geoRequestIdRef = useRef(0);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      geoRequestIdRef.current += 1;
+    };
+  }, []);
+
+  const handleEnterMuseum = useCallback(() => {
+    setHasEnteredMuseum(true);
+  }, []);
 
   const detectPosition = useCallback(() => {
+    const reqId = ++geoRequestIdRef.current;
     setGpsStatus("detecting");
 
     if (typeof navigator === "undefined" || !("geolocation" in navigator)) {
@@ -121,6 +136,7 @@ export function MainPage({
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        if (!mountedRef.current || reqId !== geoRequestIdRef.current) return;
         setCoords({
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
@@ -128,6 +144,7 @@ export function MainPage({
         setGpsStatus("gps");
       },
       () => {
+        if (!mountedRef.current || reqId !== geoRequestIdRef.current) return;
         setCoords(CATANIA_CENTER);
         setGpsStatus("fallback");
       },
@@ -143,32 +160,43 @@ export function MainPage({
 
   useEffect(() => {
     if (!hasEnteredMuseum || !coords) return;
-    let active = true;
+    const controller = new AbortController();
     setNearbyLoading(true);
     setNearbyError(null);
 
-    fetchNearbyOpere({
-      lat: coords.lat,
-      lng: coords.lng,
-      radius_km: 25,
-      categoria: nearbyCategory,
-    })
+    fetchNearbyOpere(
+      {
+        lat: coords.lat,
+        lng: coords.lng,
+        radius_km: 25,
+        categoria: nearbyCategory,
+      },
+      controller.signal,
+    )
       .then((res) => {
-        if (!active) return;
-        setNearbyData(res);
+        if (!controller.signal.aborted) {
+          setNearbyData(res);
+        }
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((err) => {
+        if (
+          controller.signal.aborted ||
+          (err instanceof DOMException && err.name === "AbortError")
+        ) {
+          return;
+        }
         setNearbyError(
           "Impossibile caricare i beni culturali nelle vicinanze in questo momento.",
         );
       })
       .finally(() => {
-        if (active) setNearbyLoading(false);
+        if (!controller.signal.aborted) {
+          setNearbyLoading(false);
+        }
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [hasEnteredMuseum, coords, nearbyCategory]);
 
@@ -185,7 +213,7 @@ export function MainPage({
 
   // Show the 3D Museum landing outside until the visitor enters inside & opens the entrance book
   if (!hasEnteredMuseum) {
-    return <MuseumLanding3D onEnter={() => setHasEnteredMuseum(true)} />;
+    return <MuseumLanding3D onEnter={handleEnterMuseum} />;
   }
 
   const nearbyItems = nearbyData?.items ?? [];
@@ -245,7 +273,10 @@ export function MainPage({
 
       <main className="w-full px-6 sm:px-10 lg:px-16 xl:px-20">
         {/* BLOCK 1 — Inquadra l'opera / Codice QR */}
-        <section id="home" className="scroll-mt-24 py-16 sm:py-24 lg:py-28">
+        <section
+          id="home"
+          className="scroll-mt-52 py-16 sm:scroll-mt-32 sm:py-24 lg:scroll-mt-24 lg:py-28"
+        >
           <div className="grid gap-12 lg:grid-cols-[1.22fr_0.78fr] lg:items-center lg:gap-16 xl:gap-20">
             {/* Left Column: Title + Side-by-Side Explanatory Text & Animated QR Illustration + CTA */}
             <RevealOnScroll immediate delayMs={40}>
@@ -316,7 +347,7 @@ export function MainPage({
                       placeholder="Es. COG-001"
                       autoComplete="off"
                       autoCapitalize="characters"
-                      className="min-h-[58px] w-full border-b-2 border-gold-deep/55 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none"
+                      className="min-h-[58px] w-full border-b-2 border-gold-deep/55 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
                     />
                   </div>
 
@@ -352,7 +383,7 @@ export function MainPage({
         {/* BLOCK 2 — Scopri i beni culturali vicino a te (Scroll-triggered Block Appear) */}
         <section
           id="scopri"
-          className="museum-rule scroll-mt-24 space-y-10 py-16 sm:py-24"
+          className="museum-rule scroll-mt-52 space-y-10 py-16 sm:scroll-mt-32 sm:py-24 lg:scroll-mt-24"
         >
           <RevealOnScroll>
             <div className="space-y-6">
@@ -511,7 +542,7 @@ export function MainPage({
         {/* BLOCK 3 — Ricerca negli Archivi Certificati (Scroll-triggered Block Appear) */}
         <section
           id="archivio"
-          className="museum-rule scroll-mt-24 space-y-10 py-16 sm:py-24"
+          className="museum-rule scroll-mt-52 space-y-10 py-16 sm:scroll-mt-32 sm:py-24 lg:scroll-mt-24"
         >
           <RevealOnScroll>
             <div className="mx-auto max-w-4xl space-y-4 text-center">

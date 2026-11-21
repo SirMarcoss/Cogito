@@ -61,7 +61,7 @@ export function ArchiveBook3D() {
     bookHandleRef.current?.setOpen(isOpen);
     if (isOpen) {
       const timer = window.setTimeout(() => {
-        searchInputRef.current?.focus();
+        searchInputRef.current?.focus({ preventScroll: true });
       }, 380);
       return () => window.clearTimeout(timer);
     }
@@ -69,31 +69,40 @@ export function ArchiveBook3D() {
 
   useEffect(() => {
     if (!isOpen) return;
-    let active = true;
+    const controller = new AbortController();
     setLoading(true);
     setError(null);
 
-    fetchOpere({
-      search: debouncedQuery,
-      categoria: selectedCategory,
-      limit: 50,
-      offset: 0,
-    })
+    fetchOpere(
+      {
+        search: debouncedQuery,
+        categoria: selectedCategory,
+        limit: 50,
+        offset: 0,
+      },
+      controller.signal,
+    )
       .then((res) => {
-        if (!active) return;
-        setResults(res.items);
-        setTotal(res.total);
+        if (!controller.signal.aborted) {
+          setResults(res.items);
+          setTotal(res.total);
+        }
       })
-      .catch(() => {
-        if (!active) return;
+      .catch((err) => {
+        if (
+          controller.signal.aborted ||
+          (err instanceof DOMException && err.name === "AbortError")
+        ) {
+          return;
+        }
         setError("Impossibile caricare gli archivi in questo momento.");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       });
 
     return () => {
-      active = false;
+      controller.abort();
     };
   }, [isOpen, debouncedQuery, selectedCategory]);
 
@@ -188,7 +197,7 @@ export function ArchiveBook3D() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cerca per titolo, autore, parola chiave o codice (es. Bellini, COG-001)…"
-                className="min-h-[60px] w-full border-b-2 border-gold-deep/50 bg-transparent pl-10 pr-4 text-xl text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none sm:text-2xl"
+                className="min-h-[60px] w-full border-b-2 border-gold-deep/50 bg-transparent pl-10 pr-4 text-xl text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm sm:text-2xl"
               />
             </div>
 
