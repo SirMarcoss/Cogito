@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="cloisterSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FAF6EE"/>
+      <stop offset="100%" stop-color="#EADBC0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#cloisterSky)"/>
+  <!-- Cloister arcade -->
+  <rect x="110" y="170" width="580" height="295" fill="#F7F0DF" stroke="#8A6826" stroke-width="2"/>
+  <path d="M110 212 H690" stroke="#B89045" stroke-width="2"/>
+  <!-- Repeated Baroque arches & twin columns -->
+  <g fill="#E7D8B9" stroke="#6E511B" stroke-width="1.8">
+    <path d="M150 435 V295 Q185 245 220 295 V435 Z" fill="#FAF6EE"/>
+    <path d="M250 435 V295 Q285 245 320 295 V435 Z" fill="#FAF6EE"/>
+    <path d="M355 435 V285 Q400 230 445 285 V435 Z" fill="#FFFDF8" stroke="#B89045" stroke-width="2.5"/>
+    <path d="M480 435 V295 Q515 245 550 295 V435 Z" fill="#FAF6EE"/>
+    <path d="M580 435 V295 Q615 245 650 295 V435 Z" fill="#FAF6EE"/>
+  </g>
+  <!-- Courtyard fountain centerpiece -->
+  <ellipse cx="400" cy="435" rx="46" ry="12" fill="#E5D0A1" stroke="#8A6826" stroke-width="1.5"/>
+  <path d="M388 435 V404 H412 V435 M378 404 Q400 392 422 404" fill="#FAF6EE" stroke="#6E511B" stroke-width="1.6"/>
+  <rect x="22" y="22" width="756" height="556" fill="none" stroke="#B89045" stroke-opacity="0.45" stroke-width="1.5"/>
+  <rect x="30" y="30" width="740" height="540" fill="none" stroke="#B89045" stroke-opacity="0.22" stroke-width="1"/>
+  <text x="400" y="72" text-anchor="middle" fill="#8A6826" font-family="Georgia, serif" font-size="15" letter-spacing="6">PATRIMONIO UNESCO • PIAZZA DANTE</text>
+  <text x="400" y="544" text-anchor="middle" fill="#4A3A28" font-family="Georgia, serif" font-size="22" font-style="italic">Chiostro del Monastero dei Benedettini di San Nicolò l’Arena</text>
+</svg>

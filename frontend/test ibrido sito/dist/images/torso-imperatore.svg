@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="cream" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FAF6EE"/>
+      <stop offset="100%" stop-color="#EADBC0"/>
+    </linearGradient>
+    <linearGradient id="marble" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFDF8"/>
+      <stop offset="65%" stop-color="#EFE4CE"/>
+      <stop offset="100%" stop-color="#D9C49D"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#cream)"/>
+  <!-- Classical niche -->
+  <path d="M250 470 V235 A150 130 0 0 1 550 235 V470 Z" fill="#EFE4CD" stroke="#B89045" stroke-width="2"/>
+  <path d="M270 470 V242 A130 110 0 0 1 530 242 V470" fill="none" stroke="#8A6826" stroke-opacity="0.35" stroke-width="1.2"/>
+  <!-- Pedestal -->
+  <rect x="315" y="405" width="170" height="65" fill="#E6D5B5" stroke="#8A6826" stroke-width="2"/>
+  <line x1="328" y1="422" x2="472" y2="422" stroke="#B89045" stroke-width="1.5"/>
+  <!-- Roman loricate torso silhouette -->
+  <path d="M352 178 Q400 192 448 178 L478 228 L452 252 L444 375 Q400 398 356 375 L348 252 L322 228 Z" fill="url(#marble)" stroke="#6E511B" stroke-width="2.2"/>
+  <path d="M372 226 Q400 242 428 226 M365 268 Q400 282 435 268 M370 315 Q400 326 430 315" fill="none" stroke="#8A6826" stroke-opacity="0.65" stroke-width="1.5"/>
+  <!-- Pteruges folds -->
+  <path d="M358 372 V398 M378 378 V402 M400 380 V404 M422 378 V402 M442 372 V398" stroke="#6E511B" stroke-width="1.6"/>
+  <rect x="22" y="22" width="756" height="556" fill="none" stroke="#B89045" stroke-opacity="0.45" stroke-width="1.5"/>
+  <rect x="30" y="30" width="740" height="540" fill="none" stroke="#B89045" stroke-opacity="0.22" stroke-width="1"/>
+  <text x="400" y="72" text-anchor="middle" fill="#8A6826" font-family="Georgia, serif" font-size="15" letter-spacing="6">COLLEZIONE ARCHEOLOGICA • I SEC. D.C.</text>
+  <text x="400" y="544" text-anchor="middle" fill="#4A3A28" font-family="Georgia, serif" font-size="22" font-style="italic">Torso Loricato dell’Imperatore Claudio</text>
+</svg>

@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="warmSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FAF6EE"/>
+      <stop offset="100%" stop-color="#EADBC0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#warmSky)"/>
+  <!-- Elliptical cavea terraces -->
+  <ellipse cx="400" cy="340" rx="285" ry="132" fill="#F2E7CF" stroke="#8A6826" stroke-width="2.2"/>
+  <ellipse cx="400" cy="344" rx="235" ry="104" fill="#FAF4E6" stroke="#B89045" stroke-width="1.6"/>
+  <ellipse cx="400" cy="348" rx="185" ry="76" fill="#EFE2C7" stroke="#8A6826" stroke-width="1.5"/>
+  <ellipse cx="400" cy="352" rx="125" ry="48" fill="#E3CFA9" stroke="#6E511B" stroke-width="1.8"/>
+  <!-- Radial vomitoria arches -->
+  <g stroke="#8A6826" stroke-opacity="0.6" stroke-width="1.5" fill="none">
+    <line x1="400" y1="208" x2="400" y2="304"/>
+    <line x1="210" y1="244" x2="310" y2="315"/>
+    <line x1="590" y1="244" x2="490" y2="315"/>
+    <line x1="125" y1="340" x2="275" y2="352"/>
+    <line x1="675" y1="340" x2="525" y2="352"/>
+  </g>
+  <!-- Roman arcade elevation -->
+  <path d="M180 220 V172 Q205 152 230 172 V220 M250 212 V164 Q275 144 300 164 V212 M320 206 V158 Q345 138 370 158 V206 M430 206 V158 Q455 138 480 158 V206 M500 212 V164 Q525 144 550 164 V212 M570 220 V172 Q595 152 620 172 V220" fill="#574C3F" fill-opacity="0.22" stroke="#8A6826" stroke-width="1.8"/>
+  <rect x="22" y="22" width="756" height="556" fill="none" stroke="#B89045" stroke-opacity="0.45" stroke-width="1.5"/>
+  <rect x="30" y="30" width="740" height="540" fill="none" stroke="#B89045" stroke-opacity="0.22" stroke-width="1"/>
+  <text x="400" y="72" text-anchor="middle" fill="#8A6826" font-family="Georgia, serif" font-size="15" letter-spacing="6">PIAZZA STESICORO • ETÀ IMPERIALE</text>
+  <text x="400" y="544" text-anchor="middle" fill="#4A3A28" font-family="Georgia, serif" font-size="22" font-style="italic">Anfiteatro Romano di Catania (II sec. d.C.)</text>
+</svg>

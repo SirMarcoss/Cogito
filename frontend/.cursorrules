@@ -1,37 +1,46 @@
-# COGITO ("Beyond the Museum") — Frontend AI Rules
+# COGITO — Frontend Rules (Architettura Ibrida 3D/2D)
 
-Prima di progettare o modificare qualsiasi file in `frontend/`, leggi **obbligatoriamente** entrambi i documenti di riferimento:
-1. `docs/FRONTEND_CONTEXT.md` — Contratti API, modelli dati, tipi TypeScript, regole di integrazione HTTP/audio/geolocalizzazione.
-2. `docs/UX_3D_ARCHITECTURE.md` — Architettura definitiva delle 4 sale dell'Hub 3D, flusso ibrido 2D/3D, Libro d'Archivio, pannelli verticali, grafo "Mappa del Tesoro" e strategia mock-first.
-3. `docs/inspiration/museo_palazzo_aurelia_galleria_virtuale_3d.html` — Riferimento estetico e Three.js (`#0b0b0c`, `#c9a86a`, `museum-glass`, `Cormorant Garamond` + `Inter`).
+## 0. Regola Obbligatoria: Verifica del Backend Prima di Ogni Nuova Funzione
+- **Ogni volta che viene implementata o modificata una funzionalità frontend**, controlla **obbligatoriamente** la cartella `backend/` (in particolare `backend/app/models/`, `backend/app/schemas/`, `backend/app/services/`, `backend/app/routers/` o `backend/app/api/`) per verificare se sono stati introdotti nuovi **service**, **model**, **schemas** o **endpoint**.
+- Allinea sempre `src/types/api.ts` e `src/services/apiClient.ts` ai contratti reali esposti dal backend, collegando direttamente il frontend ai nuovi dati/endpoint e mantenendo il fallback automatico ai mock locali (`src/services/mockData.ts`) solo quando il server backend non è attivo.
 
-## Regole Obbligatorie di Progetto
-1. **Stack & Scope**: React + Vite + TypeScript + Tailwind CSS + React Router + Leaflet + Three.js. Modifica **solo** file dentro `frontend/` salvo richiesta esplicita.
-2. **Zero Autenticazione**: App 100% guest/stateless, nessun login/registrazione/credenziali e nessuna API key o token privato nel codice frontend.
-3. **Contratto Tipi**: Usa esclusivamente i tipi condivisi in `src/types/api.ts` (`TipologiaEnte`, `CategoriaOpera`, `LivelloCompetenza`, `EnteOut`, `DocumentoArchivioOut`, `OperaSummaryOut`, `OperaDetailOut`, `OperaListResponse`, `OperaNearbyOut`, `NearbyResponse`, `NarrazioneOut`, `CorrelazioneItemOut`, `CorrelazioniResponse`, `AskRequest`, `AskResponse`, `ApiErrorResponse`).
-4. **Doppio Accesso QR (2D Veloce vs Hub 3D)**:
-   - `/qr/:code` apre **subito** la pagina 2D leggera e accessibile (zero blocco WebGL su mobile), offrendo un pulsante *"Entra nella Sala 3D"* verso la Sala IV.
-   - Dall'Hub 3D (Sala I), la risoluzione di un QR apre un **portone** che guida la camera dentro la **Sala IV** dedicata all'opera.
-5. **Architettura delle 4 Sale 3D (Fisse + Lazy Loaded)**:
-   - **Sala I (Atrio di Benvenuto)**: luminosa, senza corridoio a scorrimento, con frecce direzionali verso le altre sale e sezione QR.
-   - **Sala II (Territorio)**: corridoio scorrevole con 5–7 quadri fissi popolati da `/opere/nearby`, azione *"Mostra sulla mappa"* (`/map?highlight={id}`) e tela gigante finale che apre Leaflet (con link *"Apri con Google Maps"* nei marker).
-   - **Sala III (Archivi & Connessioni)**:
-     - **Tappa 1 (destra):** Libro d'Archivio apribile in overlay HTML/CSS (ricerca/filtri a sinistra, risultati a destra da `GET /api/v1/opere`).
-     - **Tappa 2 (corridoio fisso):** pannelli **verticali** alternati sinistra/destra, sempre cliccabili per aprire la vista 2D completa `museum-glass`. Se un dato manca, lascia la postazione con faretto spento/attenuato; se nessuna ricerca è attiva, mostra un invito curatoriale serio.
-     - **Tappa 3 (fondo):** grafo radiale interattivo in **SVG/HTML stile "Mappa del Tesoro"** (`/opere/{id}/related`, 1 centro + max 3 nodi, linee curve tratteggiate), con ogni nodo cliccabile verso la **Sala IV**.
-   - **Sala IV (Singola Opera)**: stanza dedicata a un solo bene con pannello laterale completo (livelli, voce, archivio, correlate, Q&A).
-6. **Livello Utente (`localStorage`)**:
-   - Chiave obbligatoria: `cogito_user_level` (`"bambino" | "ragazzo" | "adulto" | "esperto"`).
-   - Se assente al click su un'opera, apri bottom-sheet di scelta livello, salva e chiama `/narration?livello=...`. Se già presente, carica subito lasciando un selettore a 1 clic.
-7. **Geolocalizzazione & Mappa**:
-   - `navigator.geolocation.getCurrentPosition(..., { timeout: 5000 })`.
-   - Se rifiutata o in timeout, fallback su Catania (`lat: 37.5079`, `lng: 15.0830`, `radius_km: 20`) con pulsante `"Usa la mia posizione"`.
-   - Se `fallback_used === true`, mostra banner discreto con `fallback_message`.
-8. **Audio AI (Web Speech API)**:
-   - Passa sempre `narrazione.script_audio` (MAI `testo_lettura`), con `utterance.lang = "it-IT"`.
-   - Chiama sempre `window.speechSynthesis.cancel()` sia al cambio livello sia nel cleanup `useEffect` all'unmount.
-9. **Loading Non Bloccante, Q&A & Errori HTTP**:
-   - Renderizza subito `GET /api/v1/opere/{id}` e chiama in parallelo `/narration` e `/related` con skeleton loader dedicati.
-   - `404`: schermata amichevole + `"Torna alla mappa"`. `502`/`503`: fallback su `descrizione_ufficiale`.
-   - Q&A (`POST /opere/{id}/ask`): domanda tra 3 e 300 caratteri con contatore; mostra avviso visivo se `in_scope === false`. Nessun blocco IP lato frontend.
-10. **Accessibilità & Archivi (WCAG 2.1 AA)**: HTML semantico, contrasti elevati, `aria-label` completi, focus visibili, evidenza costante su `documento_archivio` e relazioni territoriali.
+## 1. Scope & Stack
+- Il codice attivo del sito web risiede esclusivamente in `frontend/test ibrido sito/`.
+- Stack tecnologico: **Vite 6 + React 18 + TypeScript + Tailwind CSS + React Router DOM + Three.js + Leaflet (OpenStreetMap senza API key) + html5-qrcode + lucide-react**.
+- Modifica esclusivamente file dentro `frontend/` salvo richiesta esplicita dell'utente.
+
+## 2. Accesso Guest-First & Profilo di Comprensione
+- Nessuna schermata di login, nessun account, nessuna raccolta di dati personali, nessuna API key nel frontend.
+- **Livello di comprensione persistente (`localStorage`)**:
+  - Chiavi: `cogito_user_level` (`"bambino" | "ragazzo" | "adulto" | "esperto"`) e `cogito_level_confirmed_v2`.
+  - **Al primo ingresso nel sito 2D** (dopo aver attraversato il museo 3D, mai dall'esterno 3D), chiedi subito il livello tramite `LevelWelcomeModal.tsx`, salvalo su `localStorage` e non richiederlo più.
+  - Il livello resta sempre modificabile tramite il pulsante dropdown in alto a destra (`LevelDropdown.tsx`), presente nell'header sia della Main Page sia della pagina singola opera.
+
+## 3. Architettura a 2 Pagine & Doppio Flusso QR
+1. **Pagina Principale (`/` — `src/pages/MainPage.tsx`)**:
+   - All'apertura iniziale mostra la landing 3D (`MuseumLanding3D`) salvo rientro interno con `location.state?.skipIntro === true`.
+   - Completata la planata dentro il museo verso il **libro su leggio che si apre** all'ingresso, il canvas 3D viene smontato con `dispose()` completo e resta visibile solo la Main Page 2D a tutta larghezza con effetti a comparsa blocco per blocco (`RevealOnScroll.tsx`).
+   - Struttura verticale a tutta pagina della Main Page 2D:
+     - **Header fisso (`z-[1050]`)**: brand `COGITO`, link (`Home`, `Scopri`, `Esplora archivio`) e `LevelDropdown` in alto a destra.
+     - **Blocco 1 — QR Hero (`#home`)**: titolo *"Inquadra l'opera per scoprirne la storia"*, testo guida affiancato da illustrazione esplicativa (`QrScanIllustration.tsx`), bottone *"Inquadra QR Code"* (`QrScannerModal.tsx` con `html5-qrcode`) e inserimento manuale immediato sulla destra.
+     - **Blocco 2 — Territorio (`#scopri`)**: *"Scopri i beni culturali vicino a te"*, geolocalizzazione ordinata per km con fallback su Catania (`37.5079, 15.083`), mappa OpenStreetMap senza API key filtrabile per categoria, elenco di **massimo 4 beni vicini** sotto la mappa e calcolo percorso su Google Maps.
+     - **Blocco 3 — Ricerca Archivi (`#archivio`)**: *"Effettua una ricerca tra i nostri archivi certificati"* con il libro 3D apribile (`ArchiveBook3D`), ricerca testuale libera e filtri per categoria (`Opera`, `Reperto`, `Documento`, `Monumento`).
+     - **Footer dimostrativo professionale**: strutturato su 4 colonne (*Esplora*, *Aiuto & Supporto*, *Contatti & Istituzione*) con pulsanti rigorosamente non premibili (`aria-disabled="true"`, `pointer-events-none`, `tabIndex={-1}`).
+2. **Pagina Singola Opera (`/opera/:id` e `/qr/:code` — `src/pages/OperaDetailPage.tsx`)**:
+   - Ingresso **diretto in 2D**: zero modelli 3D, zero animazioni introduttive, pensato per scansione QR fisica diretta.
+   - Layout a tutta pagina su 2 colonne:
+     - **Colonna sinistra**: Hero opera (con percorso Google Maps) + **Descrizione completa AI dagli archivi ufficiali** (unifica dati ufficiali, fonte d'archivio/nota assenza e audioguida italiana senza sezione archivistica ridondante) + **Connessioni storico-culturali** con grafo visivo interattivo (`ConnectionsGraph.tsx`, zero sovrapposizioni testuali).
+     - **Sidebar destra sticky**: **Chiedi sull'opera** (`OperaQaSection.tsx`), subito visibile accanto all'opera.
+
+## 4. Modelli 3D Procedurali (Three.js)
+- Tutti i modelli 3D sono costruiti proceduralmente in Three.js (`src/components/three/`) con mappe PBR/bumpMap, illuminazione realistica multi-sorgente e environment map `PMREMGenerator`:
+  - **Museo Neoclassico (`museumGeometry.ts`, `MuseumLanding3D.tsx`)**: facciata realistica con colonne scanalate, finestre ad arco trasparenti con opere interne illuminate, scritta `COGITO` leggibile sopra la cupola, prompt *"Scorri verso il basso per entrare"* e **libro su leggio all'interno dell'ingresso che si apre** accompagnando la transizione al 2D.
+  - **Libro d'Archivio (`bookGeometry.ts`, `ArchiveBook3D.tsx`)**: angolari in ottone, fermaglio, segnalibro in seta, copertina *"CERCA TRA GLI ARCHIVI"* e pagine curvate apribili al click.
+- Esegui sempre il cleanup completo delle risorse WebGL (`dispose()`).
+
+## 5. Direzione Artistica, AI & Continuità di Servizio
+- **Palette museale**: sfondo panna (`#FAF6EE`, `#F4EDE0`), dorato contenuto (`#A8843E`, `#856527`), inchiostro ad alto contrasto (`#1E1812`); testi grandi (`>= 18px`), bottoni ben visibili (`min-h-[54px]`), layout arioso senza riquadri attorno ai testi.
+- **Descrizione AI completa (`/opere/:id/narration?livello=...`)**: genera l'intera descrizione dell'opera attingendo agli archivi ufficiali; in caso di errore garantisci continuità mostrando `descrizione_ufficiale`.
+- **Audioguida italiana (`useSpeechGuide.ts`, `it-IT`)**: play, pausa, ripresa, stop con arresto automatico al cambio livello, cambio opera o unmount.
+- **Correlazioni AI (`/opere/:id/related?limit=3`)**: fino a 3 beni collegati su grafo visivo non sovrapposto con link diretto, oppure messaggio chiaro se assenti.
+- **Q&A contestuale (`POST /opere/:id/ask`)**: domande suggerite + testo libero 3–300 caratteri con avviso automatico se `in_scope === false`.

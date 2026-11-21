@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" width="800" height="600">
+  <defs>
+    <linearGradient id="folio" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FAF6EE"/>
+      <stop offset="100%" stop-color="#E9D8B7"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#folio)"/>
+  <!-- Historic map sheet -->
+  <rect x="88" y="96" width="624" height="404" fill="#F8F1E1" stroke="#8A6826" stroke-width="2"/>
+  <rect x="102" y="110" width="596" height="376" fill="none" stroke="#B89045" stroke-width="1.2" stroke-dasharray="4 3"/>
+  <!-- Etna contour & lava stream -->
+  <path d="M130 165 L235 128 L315 170" fill="none" stroke="#6E511B" stroke-width="2.2"/>
+  <path d="M235 128 Q265 215 315 268 T430 370 T560 445" fill="none" stroke="#9D4A2B" stroke-width="9" stroke-opacity="0.45" stroke-linecap="round"/>
+  <path d="M235 128 Q265 215 315 268 T430 370 T560 445" fill="none" stroke="#8A3727" stroke-width="2.2" stroke-dasharray="7 4"/>
+  <!-- Bastions & coastal arc -->
+  <path d="M475 305 L540 295 L562 342 L525 385 L465 362 Z" fill="#E5D0A1" fill-opacity="0.45" stroke="#574C3F" stroke-width="1.8"/>
+  <path d="M510 465 Q610 420 695 270" fill="none" stroke="#8A6826" stroke-width="1.6"/>
+  <!-- Compass rose -->
+  <g transform="translate(615,175)">
+    <circle r="36" fill="#FAF6EE" stroke="#B89045" stroke-width="1.5"/>
+    <path d="M0 -30 L8 -8 L30 0 L8 8 L0 30 L-8 8 L-30 0 L-8 -8 Z" fill="#B89045" fill-opacity="0.45" stroke="#6E511B" stroke-width="1.4"/>
+    <text y="-39" text-anchor="middle" fill="#6E511B" font-family="Georgia, serif" font-size="11">N</text>
+  </g>
+  <rect x="22" y="22" width="756" height="556" fill="none" stroke="#B89045" stroke-opacity="0.45" stroke-width="1.5"/>
+  <text x="400" y="70" text-anchor="middle" fill="#8A6826" font-family="Georgia, serif" font-size="15" letter-spacing="6">ARCHIVIO DI STATO • FONDO TOPOGRAFICO 1669</text>
+  <text x="400" y="546" text-anchor="middle" fill="#4A3A28" font-family="Georgia, serif" font-size="22" font-style="italic">Pianta dell’Eruzione dell’Etna e delle Mura di Catania (1669)</text>
+</svg>
