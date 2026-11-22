@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     gemini_api_key: Optional[str] = None
     gemini_model: str = "gemini-4-hydrogen"
     gemini_timeout_seconds: float = 15.0
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5174"
 
     default_polo_nome: str = "Catania"
     default_polo_lat: float = 37.5079
