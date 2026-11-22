@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ==============================================================================
 # COGITO — Dipendenze complete del progetto (Backend Python + Frontend Node/npm)
 # ==============================================================================
@@ -14,6 +15,9 @@
 #   npm run dev
 #
 # ==============================================================================
+=======
+
+>>>>>>> 25f123a3569d1b9f4d7a757aeffa3af0a94096cf
 # 1. BACKEND PYTHON (pip install -r requirements.txt)
 # ==============================================================================
 
@@ -32,7 +36,7 @@ pydantic-settings>=2.5.0
 python-dotenv>=1.0.1
 
 # SDK Google Gemini AI (Structured Output / Interactions API)
-google-genai>=1.0.0
+google-genai>=3.6.1
 
 # Client HTTP & Test
 httpx>=0.27.0
@@ -48,25 +52,3 @@ pytest>=8.0.0
 # Build produzione / Typecheck:
 #   npm run build
 #   npm run typecheck
-#
-# --- Dipendenze Runtime (dependencies) ---
-#   html5-qrcode@^2.3.8
-#   leaflet@^1.9.4
-#   lucide-react@^0.460.0
-#   msedge-tts@^2.1.1
-#   react@^18.3.1
-#   react-dom@^18.3.1
-#   react-router-dom@^7.0.2
-#   three@^0.160.0
-#
-# --- Dipendenze di Sviluppo (devDependencies) ---
-#   @types/leaflet@^1.9.14
-#   @types/react@^18.3.12
-#   @types/react-dom@^18.3.1
-#   @types/three@^0.160.0
-#   @vitejs/plugin-react@^4.3.4
-#   autoprefixer@^10.4.20
-#   postcss@^8.4.49
-#   tailwindcss@^3.4.15
-#   typescript@^5.6.3
-#   vite@^6.0.1
