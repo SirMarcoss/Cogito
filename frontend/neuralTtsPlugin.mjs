@@ -269,54 +269,83 @@ async function synthesizeEdgeMp3(text, voice) {
   }
 }
 
+async function extractJsonBody(req) {
+  if (req.body === undefined) {
+    return readJsonBody(req);
+  }
+  if (typeof req.body === "string") {
+    try {
+      return req.body ? JSON.parse(req.body) : {};
+    } catch {
+      throw new HttpRequestError(400, "Corpo JSON non valido.");
+    }
+  }
+  if (Buffer.isBuffer(req.body)) {
+    try {
+      const raw = req.body.toString("utf8");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      throw new HttpRequestError(400, "Corpo JSON non valido.");
+    }
+  }
+  if (req.body && typeof req.body === "object") {
+    return req.body;
+  }
+  return {};
+}
+
+export async function handleTtsRequest(req, res) {
+  try {
+    const body = await extractJsonBody(req);
+    if (!body || typeof body.text !== "string") {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({ detail: "Campo 'text' mancante o non valido." }));
+      return;
+    }
+
+    const cleanText = sanitizeForSpeech(body.text);
+    if (!cleanText) {
+      res.statusCode = 400;
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.end(JSON.stringify({ detail: "Testo mancante per la sintesi vocale." }));
+      return;
+    }
+
+    const requestedVoice =
+      typeof body.voice === "string" && ALLOWED_VOICES.has(body.voice)
+        ? body.voice
+        : DEFAULT_VOICE;
+
+    const mp3Buffer = await synthesizeEdgeMp3(cleanText, requestedVoice);
+    if (res.writableEnded) return;
+    res.statusCode = 200;
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Content-Length", String(mp3Buffer.length));
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.end(mp3Buffer);
+  } catch (err) {
+    if (res.writableEnded) return;
+    const isClientError = err instanceof HttpRequestError;
+    res.statusCode = isClientError ? err.statusCode : 502;
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.end(
+      JSON.stringify({
+        detail: isClientError
+          ? err.message
+          : "Sintesi vocale neurale temporaneamente non disponibile.",
+      }),
+    );
+  }
+}
+
 function attachTtsMiddleware(server) {
   server.middlewares.use("/api/local-tts", async (req, res, next) => {
     if (req.method !== "POST") {
       return next();
     }
 
-    try {
-      const body = await readJsonBody(req);
-      if (!body || typeof body.text !== "string") {
-        res.statusCode = 400;
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify({ detail: "Campo 'text' mancante o non valido." }));
-        return;
-      }
-
-      const cleanText = sanitizeForSpeech(body.text);
-      if (!cleanText) {
-        res.statusCode = 400;
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(JSON.stringify({ detail: "Testo mancante per la sintesi vocale." }));
-        return;
-      }
-
-      const requestedVoice =
-        typeof body.voice === "string" && ALLOWED_VOICES.has(body.voice)
-          ? body.voice
-          : DEFAULT_VOICE;
-
-      const mp3Buffer = await synthesizeEdgeMp3(cleanText, requestedVoice);
-      if (res.writableEnded) return;
-      res.statusCode = 200;
-      res.setHeader("Content-Type", "audio/mpeg");
-      res.setHeader("Content-Length", String(mp3Buffer.length));
-      res.setHeader("Cache-Control", "private, max-age=3600");
-      res.end(mp3Buffer);
-    } catch (err) {
-      if (res.writableEnded) return;
-      const isClientError = err instanceof HttpRequestError;
-      res.statusCode = isClientError ? err.statusCode : 502;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(
-        JSON.stringify({
-          detail: isClientError
-            ? err.message
-            : "Sintesi vocale neurale temporaneamente non disponibile.",
-        }),
-      );
-    }
+    await handleTtsRequest(req, res);
   });
 }
 

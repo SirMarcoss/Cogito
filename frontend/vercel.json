@@ -1,3 +1,8 @@
 {
+  "functions": {
+    "api/local-tts.js": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }]
 }

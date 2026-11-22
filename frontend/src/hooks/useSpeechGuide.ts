@@ -84,16 +84,12 @@ export function useSpeechGuide() {
     "speechSynthesis" in window &&
     typeof SpeechSynthesisUtterance !== "undefined";
 
-  const hasNeuralEndpoint = import.meta.env.DEV;
-
   const supported =
     typeof window !== "undefined" &&
-    ((hasNeuralEndpoint && typeof Audio !== "undefined") || hasBrowserSpeech);
+    (typeof Audio !== "undefined" || hasBrowserSpeech);
 
   const [status, setStatus] = useState<SpeechStatus>("idle");
-  const [engineMode, setEngineMode] = useState<SpeechEngineMode>(
-    hasNeuralEndpoint ? "neural" : "browser",
-  );
+  const [engineMode, setEngineMode] = useState<SpeechEngineMode>("neural");
   const [progress, setProgress] = useState(0);
   const [currentTimeSec, setCurrentTimeSec] = useState(0);
   const [durationSec, setDurationSec] = useState(0);
@@ -108,13 +104,11 @@ export function useSpeechGuide() {
   const preloadAbortRef = useRef<AbortController | null>(null);
   const blobCacheRef = useRef<Map<string, Blob>>(new Map());
   const inFlightFetchesRef = useRef<Map<string, Promise<Blob>>>(new Map());
-  const neuralUnavailableRef = useRef(!hasNeuralEndpoint);
+  const neuralUnavailableRef = useRef(false);
 
   // Refs for browser Web Speech fallback & race-free session guards
   const sessionIdRef = useRef(0);
-  const engineModeRef = useRef<SpeechEngineMode>(
-    hasNeuralEndpoint ? "neural" : "browser",
-  );
+  const engineModeRef = useRef<SpeechEngineMode>("neural");
   const segmentsRef = useRef<SpeechSegment[]>([]);
   const indexRef = useRef(0);
   const pauseTimerRef = useRef<number | null>(null);
