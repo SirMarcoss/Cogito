@@ -38,7 +38,7 @@ const NEARBY_CATEGORIES: Array<{ id: CategoriaOpera | null; label: string }> = [
   { id: "monumento", label: "Monumento" },
 ];
 
-const SAMPLE_QR_CODES = ["COG-001", "COG-017", "COG-046", "COG-088"];
+const SAMPLE_QR_CODES = ["COG-008", "COG-017", "COG-046", "COG-088"];
 
 const FOOTER_COLUMNS = [
   {
@@ -205,7 +205,7 @@ export function MainPage({
     e.preventDefault();
     const normalized = extractQrCodeFromInput(manualQr);
     if (!normalized) {
-      setManualQrError("Inserisci un codice opera valido (esempio: COG-001).");
+      setManualQrError("Inserisci un codice opera valido (esempio: COG-008).");
       return;
     }
     setManualQrError(null);
@@ -352,7 +352,7 @@ export function MainPage({
                         setManualQr(e.target.value);
                         if (manualQrError) setManualQrError(null);
                       }}
-                      placeholder="Es. COG-001"
+                      placeholder="Es. COG-008"
                       autoComplete="off"
                       autoCapitalize="characters"
                       className="min-h-[58px] w-full border-b-2 border-gold-deep/55 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"

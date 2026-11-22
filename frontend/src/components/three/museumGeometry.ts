@@ -169,6 +169,34 @@ function createArchedPageGeometry(
   return geo;
 }
 
+function createDynamicArchedPageGeometry(
+  width: number,
+  height: number,
+  side: "left" | "right",
+  initialArchAmp = 0.045,
+): { geo: THREE.BufferGeometry; setArchAmp: (amp: number) => void } {
+  const geo = createArchedPageGeometry(width, height, side, 1);
+  const pos = geo.attributes.position;
+  const unitArch = new Float32Array(pos.count);
+  for (let i = 0; i < pos.count; i++) {
+    unitArch[i] = pos.getY(i);
+  }
+  let lastAmp = Number.NaN;
+
+  const setArchAmp = (amp: number) => {
+    if (Math.abs(amp - lastAmp) < 1e-4) return;
+    lastAmp = amp;
+    for (let i = 0; i < pos.count; i++) {
+      pos.setY(i, unitArch[i] * amp);
+    }
+    pos.needsUpdate = true;
+    geo.computeVertexNormals();
+  };
+
+  setArchAmp(initialArchAmp);
+  return { geo, setArchAmp };
+}
+
 /** Creates a flat silk bookmark ribbon staying strictly at y=0 across the page before draping beyond edgeClearZ. */
 function createPiecewiseSilkRibbonGeometry(opts: {
   startZ: number;
@@ -2548,11 +2576,14 @@ export async function buildNeoclassicalMuseum(
   ebRightBlock.position.set((ebW - 0.08) / 2 + 0.02, 0.066, 0);
   heroBookGroup.add(ebRightBlock);
 
-  // Right open readable page strictly ON TOP of right block (y = 0.100)
-  const ebRightArched = new THREE.Mesh(
-    createArchedPageGeometry(ebW - 0.09, ebH - 0.11, "right", 0.038),
-    ebRightPageMat,
+  // Right open readable page strictly ON TOP of right block (y = 0.100, flat when closed)
+  const ebRightPageCtrl = createDynamicArchedPageGeometry(
+    ebW - 0.09,
+    ebH - 0.11,
+    "right",
+    0,
   );
+  const ebRightArched = new THREE.Mesh(ebRightPageCtrl.geo, ebRightPageMat);
   ebRightArched.position.set((ebW - 0.09) / 2 + 0.02, 0.1, 0);
   heroBookGroup.add(ebRightArched);
 
@@ -2586,9 +2617,9 @@ export async function buildNeoclassicalMuseum(
     heroBookGroup.add(band);
   }
 
-  const getHeroRightPageY = (worldX: number): number => {
+  const getHeroRightPageY = (worldX: number, archAmp: number): number => {
     const u = THREE.MathUtils.clamp((worldX - 0.02) / (ebW - 0.09), 0, 1);
-    return 0.1 + Math.sin(Math.pow(u, 0.75) * Math.PI) * 0.038;
+    return 0.1 + Math.sin(Math.pow(u, 0.75) * Math.PI) * archAmp;
   };
 
   // Flat crimson silk ribbon anchored strictly beside the spine crease (never at page center)
@@ -2609,18 +2640,15 @@ export async function buildNeoclassicalMuseum(
   });
   const silkRibbon = new THREE.Mesh(ribbonGeo, ebRibbonMat);
   const ebRibbonX = 0.132;
-  const ebRibbonYa = getHeroRightPageY(ebRibbonX - ebRibbonHalfW);
-  const ebRibbonYm = getHeroRightPageY(ebRibbonX);
-  const ebRibbonYb = getHeroRightPageY(ebRibbonX + ebRibbonHalfW);
-  silkRibbon.position.set(ebRibbonX, ebRibbonYm + 0.0045, 0);
-  silkRibbon.rotation.z = Math.atan2(ebRibbonYb - ebRibbonYa, ebRibbonW);
+  silkRibbon.position.set(ebRibbonX, getHeroRightPageY(ebRibbonX, 0) + 0.003, 0);
+  silkRibbon.rotation.z = 0;
   heroBookGroup.add(silkRibbon);
 
-  // Front cover hinge at y = 0.105:
-  // When closed (θ = 0): frontBoard at [0.175..0.209], leftBlock at [0.113..0.173], leftTopPage at 0.111
-  // When open (θ = π): frontBoard lands flat at [0.001..0.035], leftBlock at [0.037..0.097], leftTopPage at 0.099!
+  // Front cover hinge at y = 0.111:
+  // When closed (θ = 0): frontBoard at [0.175..0.209], leftBlock at [0.113..0.173], leftTopPage at 0.112
+  // When open (θ = π): frontBoard lands flat at [0.013..0.047], leftBlock at [0.049..0.109], leftTopPage at 0.110
   const ebFrontHinge = new THREE.Group();
-  ebFrontHinge.position.set(0, 0.105, 0);
+  ebFrontHinge.position.set(0, 0.111, 0);
   heroBookGroup.add(ebFrontHinge);
 
   const ebFrontBoard = new THREE.Mesh(
@@ -2634,7 +2662,7 @@ export async function buildNeoclassicalMuseum(
       ebBoardMat,
     ],
   );
-  ebFrontBoard.position.set(ebW / 2, 0.087, 0);
+  ebFrontBoard.position.set(ebW / 2, 0.081, 0);
   ebFrontHinge.add(ebFrontBoard);
 
   // Sculpted brass corners & clasp mounted strictly on frontBoard
@@ -2649,7 +2677,7 @@ export async function buildNeoclassicalMuseum(
       new THREE.BoxGeometry(0.13, ebBoardT + 0.008, 0.13),
       goldMat,
     );
-    corner.position.set(cx, 0.087, cz);
+    corner.position.set(cx, 0.081, cz);
     ebFrontHinge.add(corner);
   });
 
@@ -2657,43 +2685,51 @@ export async function buildNeoclassicalMuseum(
     new THREE.BoxGeometry(0.11, ebBoardT + 0.012, 0.18),
     goldMat,
   );
-  ebClasp.position.set(ebW - 0.03, 0.087, 0);
+  ebClasp.position.set(ebW - 0.03, 0.081, 0);
   ebFrontHinge.add(ebClasp);
 
   const ebLeftBlock = new THREE.Mesh(
     new THREE.BoxGeometry(ebW - 0.08, 0.06, ebH - 0.1),
     goldMat,
   );
-  ebLeftBlock.position.set((ebW - 0.08) / 2 + 0.02, 0.038, 0);
+  ebLeftBlock.position.set((ebW - 0.08) / 2 + 0.02, 0.032, 0);
   ebFrontHinge.add(ebLeftBlock);
 
-  const ebLeftArched = new THREE.Mesh(
-    createArchedPageGeometry(ebW - 0.09, ebH - 0.11, "right", 0.038),
-    ebLeftPageMat,
+  const ebLeftPageCtrl = createDynamicArchedPageGeometry(
+    ebW - 0.09,
+    ebH - 0.11,
+    "right",
+    0,
   );
+  const ebLeftArched = new THREE.Mesh(ebLeftPageCtrl.geo, ebLeftPageMat);
   ebLeftArched.rotation.z = Math.PI;
-  ebLeftArched.position.set((ebW - 0.09) / 2 + 0.02, 0.006, 0);
+  ebLeftArched.position.set((ebW - 0.09) / 2 + 0.02, 0.001, 0);
   ebFrontHinge.add(ebLeftArched);
 
-  // 2 Thin Turning Parchment Leaves strictly pivoted at (0, 0.104, 0) & shorter than covers
-  // Clamped monotonically so NO leaf EVER clips through the cover or another leaf!
+  // 2 Thin Turning Parchment Leaves strictly pivoted inside the stack and ALWAYS visible (zero pop-in)
   const turnLeaf1Pivot = new THREE.Group();
-  turnLeaf1Pivot.position.set(0, 0.104, 0);
-  const turnLeaf1 = new THREE.Mesh(
-    createArchedPageGeometry(ebW - 0.13, ebH - 0.13, "right", 0.028),
-    ebRightPageMat,
+  turnLeaf1Pivot.position.set(0, 0.1085, 0);
+  const turnLeaf1Ctrl = createDynamicArchedPageGeometry(
+    ebW - 0.092,
+    ebH - 0.112,
+    "right",
+    0,
   );
-  turnLeaf1.position.x = (ebW - 0.13) / 2 + 0.025;
+  const turnLeaf1 = new THREE.Mesh(turnLeaf1Ctrl.geo, ebRightPageMat);
+  turnLeaf1.position.x = (ebW - 0.092) / 2 + 0.02;
   turnLeaf1Pivot.add(turnLeaf1);
   heroBookGroup.add(turnLeaf1Pivot);
 
   const turnLeaf2Pivot = new THREE.Group();
-  turnLeaf2Pivot.position.set(0, 0.104, 0);
-  const turnLeaf2 = new THREE.Mesh(
-    createArchedPageGeometry(ebW - 0.13, ebH - 0.13, "right", 0.028),
-    ebLeftPageMat,
+  turnLeaf2Pivot.position.set(0, 0.1055, 0);
+  const turnLeaf2Ctrl = createDynamicArchedPageGeometry(
+    ebW - 0.092,
+    ebH - 0.112,
+    "right",
+    0,
   );
-  turnLeaf2.position.x = (ebW - 0.13) / 2 + 0.025;
+  const turnLeaf2 = new THREE.Mesh(turnLeaf2Ctrl.geo, ebLeftPageMat);
+  turnLeaf2.position.x = (ebW - 0.092) / 2 + 0.02;
   turnLeaf2Pivot.add(turnLeaf2);
   heroBookGroup.add(turnLeaf2Pivot);
 
@@ -3319,25 +3355,43 @@ export async function buildNeoclassicalMuseum(
     const bookApproachT = Math.min(1, Math.max(0, (clamped - 0.54) / 0.42));
     const bookEase = bookApproachT * bookApproachT * (3 - 2 * bookApproachT);
 
-    // 4. Bug-Free Hero Book Opening + Monotonic Non-Clipping Turning Leaves
+    // 4. Bug-Free Hero Book Opening + Continuous Non-Popping Turning Leaves
     const coverAngle = THREE.MathUtils.lerp(0, Math.PI * 0.96, bookEase);
     ebFrontHinge.rotation.z = coverAngle;
     heroBookGroup.position.x = THREE.MathUtils.lerp(-ebW / 2, 0, bookEase);
-    // Silk ribbon stays permanently anchored beside the spine crease inside the book
 
-    const leaf1T = Math.min(1, Math.max(0, (bookApproachT - 0.22) / 0.48));
+    const rightArchAmp = 0.038 * bookEase;
+    ebRightPageCtrl.setArchAmp(rightArchAmp);
+
+    const leftArchT = THREE.MathUtils.clamp(
+      (coverAngle / Math.PI - 0.3) / 0.55,
+      0,
+      1,
+    );
+    const leftArchEase = leftArchT * leftArchT * (3 - 2 * leftArchT);
+    ebLeftPageCtrl.setArchAmp(0.038 * leftArchEase);
+
+    // Silk ribbon stays anchored beside the spine crease and follows the right page arch height
+    const ribYa = getHeroRightPageY(ebRibbonX - ebRibbonHalfW, rightArchAmp);
+    const ribYm = getHeroRightPageY(ebRibbonX, rightArchAmp);
+    const ribYb = getHeroRightPageY(ebRibbonX + ebRibbonHalfW, rightArchAmp);
+    silkRibbon.position.y = ribYm + 0.003;
+    silkRibbon.rotation.z = Math.atan2(ribYb - ribYa, ebRibbonW);
+
+    // Turning leaves start flush at 0 rad (always visible, never popping in) and settle cleanly onto the left spread
+    const leaf1T = Math.min(1, Math.max(0, (bookApproachT - 0.14) / 0.56));
     const leaf1Ease = leaf1T * leaf1T * (3 - 2 * leaf1T);
-    const leaf1Raw = THREE.MathUtils.lerp(0.22, Math.PI * 0.94, leaf1Ease);
-    const leaf1Angle = Math.max(0.22, Math.min(leaf1Raw, coverAngle - 0.34));
+    const leaf1Raw = THREE.MathUtils.lerp(0, Math.PI * 0.945, leaf1Ease);
+    const leaf1Angle = Math.min(leaf1Raw, Math.max(0, coverAngle - 0.08));
     turnLeaf1Pivot.rotation.z = leaf1Angle;
-    turnLeaf1Pivot.visible = coverAngle > 0.58 && bookApproachT > 0.18;
+    turnLeaf1Ctrl.setArchAmp(rightArchAmp * Math.cos(leaf1Angle));
 
-    const leaf2T = Math.min(1, Math.max(0, (bookApproachT - 0.44) / 0.48));
+    const leaf2T = Math.min(1, Math.max(0, (bookApproachT - 0.36) / 0.56));
     const leaf2Ease = leaf2T * leaf2T * (3 - 2 * leaf2T);
-    const leaf2Raw = THREE.MathUtils.lerp(0.22, Math.PI * 0.92, leaf2Ease);
-    const leaf2Angle = Math.max(0.22, Math.min(leaf2Raw, leaf1Angle - 0.3));
+    const leaf2Raw = THREE.MathUtils.lerp(0, Math.PI * 0.93, leaf2Ease);
+    const leaf2Angle = Math.min(leaf2Raw, Math.max(0, leaf1Angle - 0.08));
     turnLeaf2Pivot.rotation.z = leaf2Angle;
-    turnLeaf2Pivot.visible = leaf1Angle > 0.54 && bookApproachT > 0.4;
+    turnLeaf2Ctrl.setArchAmp(rightArchAmp * Math.cos(leaf2Angle));
 
     ebLeftPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.14, 0.56, bookEase);
     ebRightPageMat.emissiveIntensity = THREE.MathUtils.lerp(0.14, 0.56, bookEase);
