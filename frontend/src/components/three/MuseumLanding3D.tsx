@@ -32,19 +32,28 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
   const [loaderFadingOut, setLoaderFadingOut] = useState(false);
   const [loaderVisible, setLoaderVisible] = useState(true);
 
+  const resetScrollInstant = useCallback(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
+
   const completeEntry = useCallback(() => {
     if (enteredRef.current) return;
     enteredRef.current = true;
     setFadeOpacity(1);
+    document.body.style.overflow = "hidden";
+    resetScrollInstant();
 
     enterTimeoutRef.current = window.setTimeout(() => {
       enterTimeoutRef.current = null;
       handleRef.current?.dispose();
       handleRef.current = null;
-      window.scrollTo({ top: 0, behavior: "auto" });
+      document.body.style.overflow = "";
+      resetScrollInstant();
       onEnterRef.current();
     }, 340);
-  }, []);
+  }, [resetScrollInstant]);
 
   useEffect(() => {
     if (!loaderVisible || webglUnsupported) return;
@@ -126,7 +135,7 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
         }
 
         handleRef.current = museumHandle;
-        window.scrollTo({ top: 0, behavior: "auto" });
+        resetScrollInstant();
 
         window.addEventListener("scroll", updateScrollTarget, { passive: true });
         window.addEventListener("resize", handleResize);
@@ -205,6 +214,7 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
         window.clearTimeout(enterTimeoutRef.current);
         enterTimeoutRef.current = null;
       }
+      document.body.style.overflow = "";
       if (listenersAttached) {
         window.removeEventListener("scroll", updateScrollTarget);
         window.removeEventListener("resize", handleResize);
