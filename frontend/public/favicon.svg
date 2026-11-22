@@ -1,5 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cogito">
-  <rect width="64" height="64" rx="16" fill="#FAF6EE" stroke="#A8843E" stroke-width="3"/>
-  <path d="M42.5 22.5a13 13 0 1 0 0 19" fill="none" stroke="#856527" stroke-width="5.5" stroke-linecap="round"/>
-  <circle cx="32" cy="32" r="3.5" fill="#A8843E"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Cogito — Museo">
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#FAF6EE" stroke="#A8843E" stroke-width="3" />
+  <!-- Timpano neoclassico con oculo -->
+  <path d="M12 24.5 L32 11.5 L52 24.5 Z" fill="#856527" stroke="#856527" stroke-width="2" stroke-linejoin="round" />
+  <circle cx="32" cy="19.5" r="2.4" fill="#FAF6EE" />
+  <!-- Architrave -->
+  <rect x="12" y="25.5" width="40" height="3.5" rx="1" fill="#A8843E" />
+  <!-- Quattro colonne -->
+  <rect x="15.5" y="30" width="4" height="15" rx="0.8" fill="#856527" />
+  <rect x="25" y="30" width="4" height="15" rx="0.8" fill="#856527" />
+  <rect x="35" y="30" width="4" height="15" rx="0.8" fill="#856527" />
+  <rect x="44.5" y="30" width="4" height="15" rx="0.8" fill="#856527" />
+  <!-- Gradinata (stilobate) -->
+  <rect x="12.5" y="46" width="39" height="3.5" rx="1" fill="#A8843E" />
+  <rect x="9.5" y="50.5" width="45" height="4" rx="1.2" fill="#1E1812" />
 </svg>
