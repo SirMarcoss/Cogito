@@ -9,7 +9,7 @@
 #
 # NOTA: `pip install -r requirements.txt` installa i pacchetti Python del backend.
 # Le dipendenze JavaScript/TypeScript del frontend vanno installate con `npm`:
-#   cd "frontend/test ibrido sito"
+#   cd frontend
 #   npm install
 #   npm run dev
 #
@@ -39,10 +39,10 @@ httpx>=0.27.0
 pytest>=8.0.0
 
 # ==============================================================================
-# 2. FRONTEND NODE / NPM (frontend/test ibrido sito/package.json)
+# 2. FRONTEND NODE / NPM (frontend/package.json)
 # ==============================================================================
 # Installazione:
-#   cd "frontend/test ibrido sito" && npm install
+#   cd frontend && npm install
 # Avvio dev server (porta 5174, include middleware TTS gratuito msedge-tts):
 #   npm run dev
 # Build produzione / Typecheck:

@@ -5,7 +5,7 @@
 - Allinea sempre `src/types/api.ts` e `src/services/apiClient.ts` ai contratti reali esposti dal backend, collegando direttamente il frontend ai nuovi dati/endpoint e mantenendo il fallback automatico ai mock locali (`src/services/mockData.ts`) solo quando il server backend non è attivo.
 
 ## 1. Scope & Stack
-- Il codice attivo del sito web risiede esclusivamente in `frontend/test ibrido sito/`.
+- Il codice attivo del sito web risiede direttamente in `frontend/`.
 - Stack tecnologico: **Vite 6 + React 18 + TypeScript + Tailwind CSS + React Router DOM + Three.js + Leaflet (OpenStreetMap senza API key) + html5-qrcode + lucide-react**.
 - Modifica esclusivamente file dentro `frontend/` salvo richiesta esplicita dell'utente.
 
