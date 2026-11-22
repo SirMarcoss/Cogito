@@ -50,7 +50,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
     async (raw: string) => {
       const code = extractQrCodeFromInput(raw);
       if (!code) {
-        setManualError("Inserisci un codice valido (esempio: COG-001).");
+        setManualError("Inserisci un codice valido (esempio: COG-008).");
         return;
       }
       await stopCameraSafely();
@@ -325,7 +325,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
                   setManualCode(e.target.value);
                   if (manualError) setManualError(null);
                 }}
-                placeholder="Es. COG-001"
+                placeholder="Es. COG-008"
                 autoComplete="off"
                 autoCapitalize="characters"
                 className="mt-2 min-h-[56px] w-full border-b-2 border-gold-deep/60 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
@@ -336,7 +336,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
                 </p>
               )}
               <p className="mt-3 text-sm text-ink-muted">
-                Codici di esempio: COG-001, COG-017, COG-046, COG-088
+                Codici di esempio: COG-008, COG-017, COG-046, COG-088
               </p>
             </div>
 
