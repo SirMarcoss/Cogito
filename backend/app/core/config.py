@@ -22,7 +22,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/cogito"
     gemini_api_key: Optional[str] = None
-    gemini_model: str = "gemini-4-hydrogen"
+    gemini_model: str = "gemini-3.5-flash-lite"
     gemini_timeout_seconds: float = 15.0
     cors_origins: str = "http://localhost:3000,http://localhost:5174"
 

@@ -1,5 +1,9 @@
 # COGITO — Il Museo oltre i Confini
 
+> **Demo pubblica (senza login):** https://cogito-frontend-kappa.vercel.app  
+> **Documentazione API (Swagger):** https://cogito-backend-3fu2.onrender.com/docs
+
+
 ## Descrizione del Progetto
 
 **Cogito — Beyond the Museum** è una piattaforma web culturale ibrida **3D/2D** che supera i confini fisici del museo tradizionale per connettere in un unico ecosistema digitale **collezioni museali, archivi storici e siti del territorio**.

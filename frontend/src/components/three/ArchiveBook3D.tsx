@@ -264,7 +264,7 @@ export function ArchiveBook3D() {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cerca per titolo, città, autore o codice (es. Palermo, Bellini, COG-008)…"
+                placeholder="Cerca per titolo, città, autore o codice (es. Palermo, Caravaggio, COG-008)…"
                 className="min-h-[60px] w-full border-b-2 border-gold-deep/50 bg-transparent pl-10 pr-4 text-xl text-ink placeholder:text-ink-muted/65 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm sm:text-2xl"
               />
             </div>

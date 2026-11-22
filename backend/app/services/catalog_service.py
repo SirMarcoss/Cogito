@@ -4,6 +4,7 @@ from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.documento_archivio import DocumentoArchivio
+from app.models.ente_luogo import EnteLuogo
 from app.models.enums import CategoriaOpera
 from app.models.opera import Opera
 from app.schemas.documento_archivio import DocumentoArchivioOut
@@ -108,11 +109,14 @@ class CatalogService:
             # Usiamo .ilike() al posto di .like() perché su PostgreSQL LIKE distingue
             # maiuscole e minuscole, mentre ILIKE le ignora (come il LIKE predefinito di MySQL).
             pattern = f"%{search.strip()}%"
-            stmt = stmt.where(
+            stmt = stmt.join(Opera.ente).where(
                 or_(
                     Opera.titolo.ilike(pattern),
                     Opera.autore.ilike(pattern),
                     Opera.breve_sintesi.ilike(pattern),
+                    Opera.qr_code.ilike(pattern),
+                    EnteLuogo.citta.ilike(pattern),
+                    EnteLuogo.nome.ilike(pattern),
                 )
             )
 

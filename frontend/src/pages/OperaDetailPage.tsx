@@ -525,6 +525,26 @@ export function OperaDetailPage({
                         </div>
 
                         {/* Refined Voice Selector */}
+                        {speech.engineMode === "neural" && (
+                          <div className="flex flex-wrap items-center gap-3 text-sm">
+                            <VoicePickerDropdown
+                              voices={speech.voices}
+                              value={speech.selectedVoiceId}
+                              onChange={(nextVoice) => {
+                                if (nextVoice === speech.selectedVoiceId) return;
+                                speech.selectVoice(nextVoice);
+                                if (
+                                  speech.status === "playing" ||
+                                  speech.status === "loading"
+                                ) {
+                                  speech.play(audioScriptText, nextVoice);
+                                } else if (speech.status === "paused") {
+                                  speech.stop();
+                                }
+                              }}
+                            />
+                          </div>
+                        )}
                         <div className="flex flex-wrap items-center gap-3 text-sm">
                           <VoicePickerDropdown
                             voices={speech.voices}

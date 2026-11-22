@@ -111,11 +111,10 @@ def get_narration(
         "(circa 130-190 parole totali) separati da una riga vuota (\\n\\n): "
         "primo paragrafo sul bene e il luogo, secondo paragrafo sui dettagli storici e artistici "
         "presenti nelle fonti, terzo paragrafo sul legame con l'ente o l'eventuale documento d'archivio. "
-        "Resta fedele ai fatti delle fonti senza inventare date, nomi o segnature.\n"
+        "Usa normali cifre per date e secoli e resta fedele ai fatti delle fonti senza inventare nulla.\n"
         "- script_audio: versione parlata completa (circa 130-190 parole, coerente con testo_lettura) "
         "pronta per lettura ad alta voce (Web Speech API): scrivi eventuali numeri o secoli per esteso "
         "ed evita sigle, abbreviazioni puntate (es. 'sec.', 'ca.', 'n.'), parentesi ed elenchi puntati.\n"
-        "evita sigle, abbreviazioni puntate (es. 'sec.', 'ca.', 'n.'), parentesi ed elenchi puntati.\n"
         "- curiosita: breve spunto interessante ricavato dalle fonti oppure null.\n"
         "- fonti_citate: elenca solo i nomi degli enti e le segnature archivistiche effettivamente presenti nei dati."
     )

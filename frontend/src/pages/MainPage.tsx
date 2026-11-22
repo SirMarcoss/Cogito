@@ -30,6 +30,10 @@ import {
 
 const CATANIA_CENTER = { lat: 37.5079, lng: 15.083 };
 
+function isNearSicily(lat: number, lng: number): boolean {
+  return lat >= 36.4 && lat <= 38.6 && lng >= 11.8 && lng <= 16.0;
+}
+
 const NEARBY_CATEGORIES: Array<{ id: CategoriaOpera | null; label: string }> = [
   { id: null, label: "Tutti" },
   { id: "opera", label: "Opera" },
@@ -191,7 +195,7 @@ export function MainPage({
       {
         lat: coords.lat,
         lng: coords.lng,
-        radius_km: 500,
+        radius_km: isNearSicily(coords.lat, coords.lng) ? 400 : 20,
         categoria: nearbyCategory,
       },
       controller.signal,
@@ -240,19 +244,17 @@ export function MainPage({
     return <MuseumLanding3D onEnter={handleEnterMuseum} />;
   }
 
-  const allNearbyItems = nearbyData?.items ?? [];
+    const allNearbyItems = nearbyData?.items ?? [];
   const isRemoteFallback = Boolean(nearbyData?.fallback_used);
+  const itemsWithin20 = allNearbyItems.filter((item) => item.distance_km <= 20);
   const hasLocalGps =
     gpsStatus === "gps" &&
     !isRemoteFallback &&
-    allNearbyItems.length > 0 &&
-    allNearbyItems[0].distance_km <= 20;
+    itemsWithin20.length > 0;
   const effectiveScope: "nearby20" | "all" =
     mapScope === "auto" ? (hasLocalGps ? "nearby20" : "all") : mapScope;
-  const nearbyItems =
-    effectiveScope === "nearby20" && !isRemoteFallback
-      ? allNearbyItems.filter((item) => item.distance_km <= 20)
-      : allNearbyItems;
+  const useNearby20 = effectiveScope === "nearby20" && itemsWithin20.length > 0;
+  const nearbyItems = useNearby20 ? itemsWithin20 : allNearbyItems;
   const topFourNearby = nearbyItems.slice(0, 4);
   const mapCenterLat = isRemoteFallback
     ? CATANIA_CENTER.lat
@@ -526,7 +528,7 @@ export function MainPage({
               centerLat={mapCenterLat}
               centerLng={mapCenterLng}
               items={nearbyItems}
-              zoomRadiusKm={effectiveScope === "nearby20" ? 20 : null}
+              zoomRadiusKm={useNearby20 ? 20 : null}
               showOriginMarker={gpsStatus === "gps" && !isRemoteFallback}
               onSelectOpera={(id) => navigate(`/opera/${id}`)}
             />
@@ -655,10 +657,10 @@ export function MainPage({
                 <p className="text-base leading-relaxed text-ink-secondary">
                   Piattaforma culturale dedicata alla scoperta accessibile del
                   patrimonio museale, archeologico e archivistico del territorio
-                  catanese.
+                  siciliano.
                 </p>
                 <p className="text-sm font-medium text-gold-deep">
-                  Catania · Rete Museale e Archivistica
+                  Sicilia · Rete Museale e Archivistica
                 </p>
               </div>
 
