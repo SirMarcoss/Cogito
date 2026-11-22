@@ -612,6 +612,11 @@ export function buildArchiveBookScene(
 
   const renderFrame = (now: number) => {
     if (disposed) return;
+    if (typeof document !== "undefined" && document.hidden) {
+      lastTime = now;
+      rafId = window.requestAnimationFrame(renderFrame);
+      return;
+    }
     const dt = Math.min(0.05, (now - lastTime) / 1000);
     lastTime = now;
 
@@ -663,9 +668,8 @@ export function buildArchiveBookScene(
       targetHover = hovered ? 1 : 0;
     },
     resize: () => {
-      const parent = canvas.parentElement;
-      const w = parent ? parent.clientWidth : 720;
-      const h = parent ? parent.clientHeight : 420;
+      const w = canvas.clientWidth || canvas.parentElement?.clientWidth || 720;
+      const h = canvas.clientHeight || 420;
       if (w <= 0 || h <= 0) return;
       camera.aspect = w / h;
       camera.updateProjectionMatrix();

@@ -11,15 +11,6 @@ import type {
   OperaListResponse,
 } from "../types/api";
 import { ApiError } from "./apiError";
-import {
-  mockAskOperaQuestion,
-  mockFetchNearbyOpere,
-  mockFetchOperaById,
-  mockFetchOperaByQr,
-  mockFetchOperaNarration,
-  mockFetchOperaRelated,
-  mockFetchOpere,
-} from "./mockData";
 
 export { ApiError, isApiError } from "./apiError";
 
@@ -27,34 +18,50 @@ const API_BASE_URL = (
   (import.meta.env.VITE_API_BASE_URL as string | undefined) || "/api/v1"
 ).replace(/\/$/, "");
 
-type DataMode = "auto" | "live" | "mock";
-
-function resolveInitialMode(): DataMode {
-  const flag = (import.meta.env.VITE_USE_MOCK as string | undefined)?.toLowerCase().trim();
-  if (flag === "true") return "mock";
-  if (flag === "false") return "live";
-  return "auto";
+function formatValidationDetail(detail: unknown): string | null {
+  if (typeof detail === "string" && detail.trim()) {
+    return detail.trim();
+  }
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (item && typeof item === "object" && "msg" in item) {
+          return String((item as { msg?: unknown }).msg ?? "").trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+    if (messages.length > 0) {
+      return messages.join("; ");
+    }
+  }
+  return null;
 }
-
-const INITIAL_MODE: DataMode = resolveInitialMode();
-let mockFallbackUntil = 0;
-const FALLBACK_COOLDOWN_MS = 30000;
 
 async function parseErrorResponse(res: Response): Promise<ApiError> {
   try {
     const contentType = res.headers.get("content-type") ?? "";
     if (contentType.includes("application/json")) {
-      const data = (await res.json()) as Partial<ApiErrorResponse>;
+      const data = (await res.json()) as Partial<ApiErrorResponse> & {
+        detail?: unknown;
+      };
+      const parsedDetail =
+        formatValidationDetail(data.detail) ??
+        (res.statusText || "Errore di comunicazione con il server.");
       return new ApiError(
         res.status,
         data.error_code ?? `HTTP_${res.status}`,
-        data.detail ?? res.statusText ?? "Errore di comunicazione con il server.",
+        parsedDetail,
       );
     }
   } catch {
     // Fall through to generic ApiError
   }
-  return new ApiError(res.status, `HTTP_${res.status}`, res.statusText || "Errore server.");
+  return new ApiError(
+    res.status,
+    `HTTP_${res.status}`,
+    res.statusText || "Errore server.",
+  );
 }
 
 function mergeAbortSignals(
@@ -87,7 +94,7 @@ function mergeAbortSignals(
   };
 }
 
-async function requestWithFallback<T>(
+async function request<T>(
   path: string,
   options: {
     method?: "GET" | "POST";
@@ -95,21 +102,12 @@ async function requestWithFallback<T>(
     signal?: AbortSignal;
     timeoutMs?: number;
   },
-  mockFn: () => Promise<T>,
 ): Promise<T> {
   if (options.signal?.aborted) {
     throw new DOMException("Aborted", "AbortError");
   }
 
-  if (INITIAL_MODE === "mock") {
-    return mockFn();
-  }
-
-  if (INITIAL_MODE === "auto" && Date.now() < mockFallbackUntil) {
-    return mockFn();
-  }
-
-  const timeoutMs = options.timeoutMs ?? (INITIAL_MODE === "auto" ? 2000 : 12000);
+  const timeoutMs = options.timeoutMs ?? 12000;
   const { signal, cleanup } = mergeAbortSignals(options.signal, timeoutMs);
 
   try {
@@ -120,22 +118,17 @@ async function requestWithFallback<T>(
       signal,
     });
 
-    const contentType = res.headers.get("content-type") ?? "";
-    const isJson = contentType.includes("application/json");
-
-    if (INITIAL_MODE === "auto") {
-      // Only treat non-JSON proxy errors (e.g. Vite proxy ECONNREFUSED 500/502/504) as unreachable backend.
-      if (!isJson && !res.ok) {
-        mockFallbackUntil = Date.now() + FALLBACK_COOLDOWN_MS;
-        return mockFn();
-      }
-      if (isJson) {
-        mockFallbackUntil = 0;
-      }
-    }
-
     if (!res.ok) {
       throw await parseErrorResponse(res);
+    }
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) {
+      throw new ApiError(
+        502,
+        "INVALID_RESPONSE",
+        "Risposta non valida dal server Cogito.",
+      );
     }
 
     return (await res.json()) as T;
@@ -145,10 +138,6 @@ async function requestWithFallback<T>(
     }
     if (err instanceof ApiError) {
       throw err;
-    }
-    if (INITIAL_MODE === "auto") {
-      mockFallbackUntil = Date.now() + FALLBACK_COOLDOWN_MS;
-      return mockFn();
     }
     throw new ApiError(
       503,
@@ -179,11 +168,7 @@ export function fetchOpere(
   sp.set("limit", String(params?.limit ?? 50));
   sp.set("offset", String(params?.offset ?? 0));
 
-  return requestWithFallback(
-    `/opere?${sp.toString()}`,
-    { method: "GET", signal },
-    () => mockFetchOpere(params),
-  );
+  return request(`/opere?${sp.toString()}`, { method: "GET", signal });
 }
 
 export function fetchNearbyOpere(
@@ -201,22 +186,14 @@ export function fetchNearbyOpere(
   sp.set("radius_km", String(params.radius_km ?? 20));
   if (params.categoria) sp.set("categoria", params.categoria);
 
-  return requestWithFallback(
-    `/opere/nearby?${sp.toString()}`,
-    { method: "GET", signal },
-    () => mockFetchNearbyOpere(params),
-  );
+  return request(`/opere/nearby?${sp.toString()}`, { method: "GET", signal });
 }
 
 export function fetchOperaById(
   operaId: number,
   signal?: AbortSignal,
 ): Promise<OperaDetailOut> {
-  return requestWithFallback(
-    `/opere/${operaId}`,
-    { method: "GET", signal },
-    () => mockFetchOperaById(operaId),
-  );
+  return request(`/opere/${operaId}`, { method: "GET", signal });
 }
 
 export function fetchOperaByQr(
@@ -224,11 +201,10 @@ export function fetchOperaByQr(
   signal?: AbortSignal,
 ): Promise<OperaDetailOut> {
   const normalized = qrCode.trim().toUpperCase();
-  return requestWithFallback(
-    `/qr/${encodeURIComponent(normalized)}`,
-    { method: "GET", signal },
-    () => mockFetchOperaByQr(normalized),
-  );
+  return request(`/qr/${encodeURIComponent(normalized)}`, {
+    method: "GET",
+    signal,
+  });
 }
 
 export function fetchOperaNarration(
@@ -237,11 +213,11 @@ export function fetchOperaNarration(
   signal?: AbortSignal,
 ): Promise<NarrazioneOut> {
   const sp = new URLSearchParams({ livello });
-  return requestWithFallback(
-    `/opere/${operaId}/narration?${sp.toString()}`,
-    { method: "GET", signal, timeoutMs: 14000 },
-    () => mockFetchOperaNarration(operaId, livello, signal),
-  );
+  return request(`/opere/${operaId}/narration?${sp.toString()}`, {
+    method: "GET",
+    signal,
+    timeoutMs: 20000,
+  });
 }
 
 export function fetchOperaRelated(
@@ -250,11 +226,11 @@ export function fetchOperaRelated(
   signal?: AbortSignal,
 ): Promise<CorrelazioniResponse> {
   const sp = new URLSearchParams({ limit: String(limit) });
-  return requestWithFallback(
-    `/opere/${operaId}/related?${sp.toString()}`,
-    { method: "GET", signal, timeoutMs: 12000 },
-    () => mockFetchOperaRelated(operaId, limit, signal),
-  );
+  return request(`/opere/${operaId}/related?${sp.toString()}`, {
+    method: "GET",
+    signal,
+    timeoutMs: 20000,
+  });
 }
 
 export function askOperaQuestion(
@@ -262,9 +238,10 @@ export function askOperaQuestion(
   payload: AskRequest,
   signal?: AbortSignal,
 ): Promise<AskResponse> {
-  return requestWithFallback(
-    `/opere/${operaId}/ask`,
-    { method: "POST", body: payload, signal, timeoutMs: 15000 },
-    () => mockAskOperaQuestion(operaId, payload),
-  );
+  return request(`/opere/${operaId}/ask`, {
+    method: "POST",
+    body: payload,
+    signal,
+    timeoutMs: 20000,
+  });
 }

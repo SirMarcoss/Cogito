@@ -9,6 +9,7 @@ interface LevelWelcomeModalProps {
 }
 
 export function LevelWelcomeModal({ open, onSelect }: LevelWelcomeModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const firstOptionRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -16,13 +17,37 @@ export function LevelWelcomeModal({ open, onSelect }: LevelWelcomeModalProps) {
     const timer = window.setTimeout(() => {
       firstOptionRef.current?.focus({ preventScroll: true });
     }, 60);
-    return () => window.clearTimeout(timer);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && dialogRef.current) {
+        const buttons = Array.from(
+          dialogRef.current.querySelectorAll<HTMLButtonElement>("button:not([disabled])"),
+        );
+        if (buttons.length === 0) return;
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [open]);
 
   if (!open) return null;
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="level-welcome-title"

@@ -14,6 +14,7 @@ const MAX_CHUNK_CHARS = 380;
 const CHUNK_SPLIT_THRESHOLD = 360;
 const PARALLEL_CHUNKS = 4;
 const MAX_BODY_BYTES = 32768;
+const BODY_READ_TIMEOUT_MS = 10000;
 const MAX_CACHE_ENTRIES = 160;
 
 // In-memory LRU audio cache & concurrent in-flight request deduplication
@@ -29,6 +30,7 @@ class HttpRequestError extends Error {
 
 function sanitizeForSpeech(raw) {
   const normalized = raw
+    .replace(/[\x00-\x1F\x7F]+/g, " ")
     .replace(/[\u2018\u2019]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2013\u2014]/g, ", ")
@@ -83,8 +85,7 @@ function splitTextIntoBalancedChunks(text) {
     return [text];
   }
 
-  const sentences = text
-    .split(/(?<=[.!?…:;])\s+/)
+  const sentences = (text.match(/[^.!?…:;]+[.!?…:;]*/g) ?? [text])
     .map((s) => s.trim())
     .filter(Boolean);
 
@@ -175,13 +176,30 @@ function readJsonBody(req) {
     let totalBytes = 0;
     let settled = false;
 
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new HttpRequestError(408, "Timeout lettura richiesta TTS."));
+    }, BODY_READ_TIMEOUT_MS);
+
+    const finish = (fn, arg) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn(arg);
+    };
+
     req.on("data", (chunk) => {
       if (settled) return;
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
       totalBytes += buf.length;
       if (totalBytes > MAX_BODY_BYTES) {
-        settled = true;
-        reject(new HttpRequestError(413, "Testo troppo lungo per la richiesta TTS."));
+        req.pause();
+        req.removeAllListeners("data");
+        finish(
+          reject,
+          new HttpRequestError(413, "Testo troppo lungo per la richiesta TTS."),
+        );
         return;
       }
       chunks.push(buf);
@@ -189,20 +207,16 @@ function readJsonBody(req) {
 
     req.on("end", () => {
       if (settled) return;
-      settled = true;
       try {
         const raw = Buffer.concat(chunks).toString("utf8");
-        resolve(raw ? JSON.parse(raw) : {});
+        finish(resolve, raw ? JSON.parse(raw) : {});
       } catch {
-        reject(new HttpRequestError(400, "Corpo JSON non valido."));
+        finish(reject, new HttpRequestError(400, "Corpo JSON non valido."));
       }
     });
 
     req.on("error", (err) => {
-      if (!settled) {
-        settled = true;
-        reject(err);
-      }
+      finish(reject, err);
     });
   });
 }
@@ -288,18 +302,18 @@ function attachTtsMiddleware(server) {
       res.statusCode = 200;
       res.setHeader("Content-Type", "audio/mpeg");
       res.setHeader("Content-Length", String(mp3Buffer.length));
-      res.setHeader("Cache-Control", "public, max-age=3600");
+      res.setHeader("Cache-Control", "private, max-age=3600");
       res.end(mp3Buffer);
     } catch (err) {
       if (res.writableEnded) return;
-      res.statusCode = err instanceof HttpRequestError ? err.statusCode : 502;
+      const isClientError = err instanceof HttpRequestError;
+      res.statusCode = isClientError ? err.statusCode : 502;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.end(
         JSON.stringify({
-          detail:
-            err instanceof Error
-              ? err.message
-              : "Sintesi vocale neurale temporaneamente non disponibile.",
+          detail: isClientError
+            ? err.message
+            : "Sintesi vocale neurale temporaneamente non disponibile.",
         }),
       );
     }

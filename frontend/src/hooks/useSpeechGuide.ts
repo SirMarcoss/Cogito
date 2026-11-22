@@ -52,8 +52,8 @@ function splitIntoSpeechSegments(rawText: string): SpeechSegment[] {
 
   const segments: SpeechSegment[] = [];
   paragraphs.forEach((paragraph) => {
-    const sentences = paragraph
-      .split(/(?<=[.!?…])\s+(?=[A-ZÀÈÉÌÒÙ0-9"“«])/)
+    // Lookbehind-free sentence split for Safari / iOS < 16.4 compatibility
+    const sentences = (paragraph.match(/[^.!?…]+[.!?…]*/g) ?? [paragraph])
       .map((s) => s.trim())
       .filter(Boolean);
 
@@ -104,6 +104,7 @@ export function useSpeechGuide() {
   const preloadAbortRef = useRef<AbortController | null>(null);
   const blobCacheRef = useRef<Map<string, Blob>>(new Map());
   const inFlightFetchesRef = useRef<Map<string, Promise<Blob>>>(new Map());
+  const neuralUnavailableRef = useRef(false);
 
   // Refs for browser Web Speech fallback & race-free session guards
   const sessionIdRef = useRef(0);
@@ -305,6 +306,9 @@ export function useSpeechGuide() {
       if (callerSignal?.aborted) {
         throw new DOMException("Aborted", "AbortError");
       }
+      if (neuralUnavailableRef.current) {
+        throw new Error("Endpoint TTS neurale non disponibile.");
+      }
 
       const cacheKey = `${voiceId}:${cleanText}`;
       const cachedBlob = blobCacheRef.current.get(cacheKey);
@@ -321,14 +325,26 @@ export function useSpeechGuide() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ text: cleanText, voice: voiceId }),
-            signal: callerSignal,
           });
 
           if (!res.ok) {
+            if (res.status === 404 || res.status === 405) {
+              neuralUnavailableRef.current = true;
+            }
             throw new Error(`TTS HTTP ${res.status}`);
           }
 
+          const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+          if (!contentType.includes("audio/")) {
+            neuralUnavailableRef.current = true;
+            throw new Error("Risposta TTS non in formato audio.");
+          }
+
           const fetchedBlob = await res.blob();
+          if (fetchedBlob.size === 0) {
+            throw new Error("Buffer audio vuoto.");
+          }
+
           if (blobCacheRef.current.size >= MAX_CLIENT_BLOB_CACHE) {
             const oldestKey = blobCacheRef.current.keys().next().value;
             if (oldestKey) blobCacheRef.current.delete(oldestKey);
@@ -374,32 +390,25 @@ export function useSpeechGuide() {
       }
 
       const clean = rawText.trim();
-      if (!supported || !clean || typeof fetch === "undefined") return;
+      if (
+        !supported ||
+        !clean ||
+        typeof fetch === "undefined" ||
+        neuralUnavailableRef.current
+      ) {
+        return;
+      }
 
       const controller = new AbortController();
       preloadAbortRef.current = controller;
-
       const currentVoice = voiceRef.current;
-      const orderedVoices = [
-        currentVoice,
-        ...NEURAL_VOICES.map((v) => v.id).filter((id) => id !== currentVoice),
-      ];
 
       void (async () => {
-        const [primaryVoice, ...otherVoices] = orderedVoices;
         try {
-          await fetchOrGetCachedVoiceBlob(clean, primaryVoice, controller.signal);
+          await fetchOrGetCachedVoiceBlob(clean, currentVoice, controller.signal);
         } catch {
-          if (controller.signal.aborted) return;
+          // Silent preload failure; play() will fall back to browser speech if needed
         }
-
-        if (controller.signal.aborted || otherVoices.length === 0) return;
-
-        await Promise.allSettled(
-          otherVoices.map((voiceId) =>
-            fetchOrGetCachedVoiceBlob(clean, voiceId, controller.signal),
-          ),
-        );
       })();
     },
     [supported, fetchOrGetCachedVoiceBlob],
@@ -413,6 +422,11 @@ export function useSpeechGuide() {
       stop();
       const mySession = sessionIdRef.current;
       const targetVoice = voiceOverride ?? voiceRef.current;
+
+      if (neuralUnavailableRef.current) {
+        playBrowserFallback(clean, mySession, targetVoice);
+        return;
+      }
 
       setStatus("loading");
       setEngineModeSynced("neural");
@@ -440,15 +454,10 @@ export function useSpeechGuide() {
           if (mySession !== sessionIdRef.current || controller.signal.aborted) {
             return;
           }
-        } catch (err) {
-          if (
-            controller.signal.aborted ||
-            (err instanceof DOMException && err.name === "AbortError") ||
-            mySession !== sessionIdRef.current
-          ) {
+        } catch {
+          if (controller.signal.aborted || mySession !== sessionIdRef.current) {
             return;
           }
-          // Only fall back to browser speech when the /api/local-tts endpoint itself is unreachable
           cleanupAudioElement();
           playBrowserFallback(clean, mySession, targetVoice);
           return;
@@ -505,9 +514,8 @@ export function useSpeechGuide() {
           ) {
             return;
           }
-          // Reset cleanly instead of ambushing the user with a robotic browser voice mid-switch
           cleanupAudioElement();
-          setStatus("idle");
+          playBrowserFallback(clean, mySession, targetVoice);
         };
 
         audio.src = url;
@@ -533,12 +541,11 @@ export function useSpeechGuide() {
             return;
           }
           if (err instanceof DOMException && err.name === "NotAllowedError") {
-            // Keep prepared audio in paused state so user can tap Riprendi cleanly without falling back to robotic voice
             setStatus("paused");
             return;
           }
           cleanupAudioElement();
-          setStatus("idle");
+          playBrowserFallback(clean, mySession, targetVoice);
         }
       })();
     },

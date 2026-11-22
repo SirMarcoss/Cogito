@@ -90,7 +90,14 @@ export function MainPage({
     (location.state as { skipIntro?: boolean } | null)?.skipIntro,
   );
 
-  const [hasEnteredMuseum, setHasEnteredMuseum] = useState(skipIntroFromNav);
+  const [hasEnteredMuseum, setHasEnteredMuseum] = useState(() => {
+    if (skipIntroFromNav) return true;
+    try {
+      return window.sessionStorage.getItem("cogito_entered_museum") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   // Manual QR entry state
   const [manualQr, setManualQr] = useState("");
@@ -122,8 +129,23 @@ export function MainPage({
   }, []);
 
   const handleEnterMuseum = useCallback(() => {
+    try {
+      window.sessionStorage.setItem("cogito_entered_museum", "1");
+    } catch {
+      // Ignore storage failures
+    }
     setHasEnteredMuseum(true);
   }, []);
+
+  useEffect(() => {
+    if (hasEnteredMuseum) {
+      try {
+        window.sessionStorage.setItem("cogito_entered_museum", "1");
+      } catch {
+        // Ignore storage failures
+      }
+    }
+  }, [hasEnteredMuseum]);
 
   const detectPosition = useCallback(() => {
     const reqId = ++geoRequestIdRef.current;
@@ -169,7 +191,7 @@ export function MainPage({
       {
         lat: coords.lat,
         lng: coords.lng,
-        radius_km: 350,
+        radius_km: 500,
         categoria: nearbyCategory,
       },
       controller.signal,
@@ -186,6 +208,7 @@ export function MainPage({
         ) {
           return;
         }
+        setNearbyData(null);
         setNearbyError(
           "Impossibile caricare i beni culturali nelle vicinanze in questo momento.",
         );
@@ -217,16 +240,20 @@ export function MainPage({
     return <MuseumLanding3D onEnter={handleEnterMuseum} />;
   }
 
-  const nearbyItems = nearbyData?.items ?? [];
-  const topFourNearby = nearbyItems.slice(0, 4);
+  const allNearbyItems = nearbyData?.items ?? [];
   const isRemoteFallback = Boolean(nearbyData?.fallback_used);
   const hasLocalGps =
     gpsStatus === "gps" &&
     !isRemoteFallback &&
-    nearbyItems.length > 0 &&
-    nearbyItems[0].distance_km <= 25;
+    allNearbyItems.length > 0 &&
+    allNearbyItems[0].distance_km <= 20;
   const effectiveScope: "nearby20" | "all" =
     mapScope === "auto" ? (hasLocalGps ? "nearby20" : "all") : mapScope;
+  const nearbyItems =
+    effectiveScope === "nearby20" && !isRemoteFallback
+      ? allNearbyItems.filter((item) => item.distance_km <= 20)
+      : allNearbyItems;
+  const topFourNearby = nearbyItems.slice(0, 4);
   const mapCenterLat = isRemoteFallback
     ? CATANIA_CENTER.lat
     : (nearbyData?.user_lat ?? coords?.lat ?? CATANIA_CENTER.lat);
@@ -348,6 +375,8 @@ export function MainPage({
                       id="home-manual-qr"
                       type="text"
                       value={manualQr}
+                      aria-invalid={Boolean(manualQrError)}
+                      aria-describedby={manualQrError ? "home-manual-qr-error" : undefined}
                       onChange={(e) => {
                         setManualQr(e.target.value);
                         if (manualQrError) setManualQrError(null);
@@ -366,7 +395,11 @@ export function MainPage({
                 </form>
 
                 {manualQrError && (
-                  <p className="text-base font-medium text-[#8A3727]">
+                  <p
+                    id="home-manual-qr-error"
+                    role="alert"
+                    className="text-base font-medium text-[#8A3727]"
+                  >
                     {manualQrError}
                   </p>
                 )}
@@ -637,14 +670,9 @@ export function MainPage({
                   <ul className="space-y-2.5">
                     {col.items.map((item) => (
                       <li key={item}>
-                        <button
-                          type="button"
-                          aria-disabled="true"
-                          tabIndex={-1}
-                          className="pointer-events-none cursor-default text-left text-base font-medium text-ink-muted"
-                        >
+                        <span className="cursor-default text-left text-base font-medium text-ink-muted">
                           {item}
-                        </button>
+                        </span>
                       </li>
                     ))}
                   </ul>

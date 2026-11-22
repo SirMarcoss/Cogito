@@ -52,7 +52,13 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
     abortRef.current?.abort();
     abortRef.current = null;
     setLoading(false);
-    setTurns((prev) => prev.filter((t) => t.status !== "loading"));
+    setTurns((prev) => {
+      const pending = prev.find((t) => t.status === "loading");
+      if (pending) {
+        setQuestion((curr) => curr || pending.question);
+      }
+      return prev.filter((t) => t.status !== "loading");
+    });
   }, [livello]);
 
   useEffect(() => {
@@ -243,14 +249,15 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
                         {turn.response.answer}
                       </p>
 
-                      {turn.response.fonti_citate.length > 0 && (
-                        <p className="text-xs leading-relaxed text-ink-muted xl:text-sm">
-                          <span className="font-semibold text-gold-deep">
-                            Fonti:{" "}
-                          </span>
-                          {turn.response.fonti_citate.join(" · ")}
-                        </p>
-                      )}
+                      {turn.response.in_scope &&
+                        turn.response.fonti_citate.length > 0 && (
+                          <p className="text-xs leading-relaxed text-ink-muted xl:text-sm">
+                            <span className="font-semibold text-gold-deep">
+                              Fonti:{" "}
+                            </span>
+                            {turn.response.fonti_citate.join(" · ")}
+                          </p>
+                        )}
                     </>
                   )}
                 </div>
@@ -287,12 +294,18 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
             id="opera-qa-input"
             rows={2}
             value={question}
+            aria-invalid={Boolean(validationError)}
+            aria-describedby={validationError ? "opera-qa-error" : undefined}
             onChange={(e) => {
               setQuestion(e.target.value);
               if (validationError) setValidationError(null);
             }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
+              if (
+                e.key === "Enter" &&
+                !e.shiftKey &&
+                !e.nativeEvent.isComposing
+              ) {
                 e.preventDefault();
                 if (!loading) void submitQuestion(question);
               }
@@ -311,7 +324,11 @@ export function OperaQaSection({ operaId, livello }: OperaQaSectionProps) {
               {charCount} / 300 caratteri
             </span>
             {validationError && (
-              <span className="font-semibold text-[#8A3727]">
+              <span
+                id="opera-qa-error"
+                role="alert"
+                className="font-semibold text-[#8A3727]"
+              >
                 {validationError}
               </span>
             )}

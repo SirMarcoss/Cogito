@@ -52,10 +52,22 @@ export function ArchiveBook3D() {
     }
 
     const onResize = () => handle?.resize();
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      setWebglUnsupported(true);
+    };
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => handle?.resize())
+        : null;
+    resizeObserver?.observe(canvas);
     window.addEventListener("resize", onResize);
+    canvas.addEventListener("webglcontextlost", onContextLost);
 
     return () => {
+      resizeObserver?.disconnect();
       window.removeEventListener("resize", onResize);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
       handle?.dispose();
       bookHandleRef.current = null;
     };
@@ -103,6 +115,8 @@ export function ArchiveBook3D() {
         ) {
           return;
         }
+        setResults([]);
+        setTotal(0);
         setError("Impossibile caricare gli archivi in questo momento.");
       })
       .finally(() => {
@@ -311,6 +325,13 @@ export function ArchiveBook3D() {
                     <img
                       src={item.immagine_url}
                       alt={item.titolo}
+                      loading="lazy"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (!img.src.endsWith("/images/castello-ursino.svg")) {
+                          img.src = "/images/castello-ursino.svg";
+                        }
+                      }}
                       className="h-24 w-24 shrink-0 rounded-xl object-cover"
                     />
                     <div className="space-y-1">

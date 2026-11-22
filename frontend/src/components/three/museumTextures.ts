@@ -714,24 +714,6 @@ export function createContactShadowTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-export function createVerticalAoGradientTexture(): THREE.CanvasTexture {
-  const c = document.createElement("canvas");
-  c.width = 64;
-  c.height = 128;
-  const ctx = c.getContext("2d");
-  if (ctx) {
-    const grad = ctx.createLinearGradient(0, 128, 0, 0);
-    grad.addColorStop(0, "rgba(38, 30, 22, 0.34)");
-    grad.addColorStop(0.35, "rgba(38, 30, 22, 0.12)");
-    grad.addColorStop(1, "rgba(38, 30, 22, 0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 64, 128);
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  return tex;
-}
-
 export function createVolumetricBeamTexture(): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = 256;

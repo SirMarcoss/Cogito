@@ -167,13 +167,22 @@ export function HeritageMap({
     mapRef.current = map;
     layerGroupRef.current = group;
 
-    // Ensure proper map sizing across full-width containers
+    // Ensure proper map sizing across full-width containers and animations
     const resizeTimer = window.setTimeout(() => {
       map.invalidateSize();
     }, 250);
 
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => {
+            map.invalidateSize();
+          })
+        : null;
+    resizeObserver?.observe(el);
+
     return () => {
       window.clearTimeout(resizeTimer);
+      resizeObserver?.disconnect();
       map.remove();
       mapRef.current = null;
       layerGroupRef.current = null;
@@ -211,7 +220,11 @@ export function HeritageMap({
 
     const pinIcon = createHeritagePinIcon();
     items.forEach((item) => {
-      const marker = L.marker([item.lat, item.lng], { icon: pinIcon });
+      const marker = L.marker([item.lat, item.lng], {
+        icon: pinIcon,
+        title: item.titolo,
+        alt: item.titolo,
+      });
       marker.bindPopup(() =>
         buildPopupElement(item, (id) => onSelectRef.current(id)),
       );
@@ -235,6 +248,7 @@ export function HeritageMap({
     <div className="cogito-map-wrapper overflow-hidden rounded-2xl border border-gold-light">
       <div
         ref={containerRef}
+        role="region"
         aria-label="Mappa interattiva dei beni culturali"
         className="h-[440px] w-full lg:h-[520px]"
       />

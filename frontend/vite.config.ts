@@ -24,6 +24,23 @@ const customLogger = {
 export default defineConfig({
   customLogger,
   plugins: [react(), neuralTtsPlugin()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules/three")) {
+            return "vendor-three";
+          }
+          if (id.includes("node_modules/leaflet")) {
+            return "vendor-leaflet";
+          }
+          if (id.includes("node_modules/html5-qrcode")) {
+            return "vendor-qr";
+          }
+        },
+      },
+    },
+  },
   server: {
     port: 5174,
     proxy: {

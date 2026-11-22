@@ -54,18 +54,19 @@ export function LevelDropdown({ value, onChange }: LevelDropdownProps) {
   }, [open, value]);
 
   const toggleOpen = () => {
-    setOpen((prev) => {
-      const next = !prev;
-      if (next && containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        const vw = window.innerWidth || 1024;
-        const menuW = vw >= 640 ? 384 : 320;
-        const canFitRight = rect.right >= menuW + 16;
-        const wouldClipLeftAligned = rect.left + menuW > vw - 16;
-        setAlignRight(canFitRight && (wouldClipLeftAligned || rect.left > vw / 2));
-      }
-      return next;
-    });
+    if (!open && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const vw = window.innerWidth || 1024;
+      const menuW = vw >= 640 ? 384 : 320;
+      const canFitRight = rect.right >= menuW + 16;
+      const wouldClipLeftAligned = rect.left + menuW > vw - 16;
+      setAlignRight(
+        canFitRight
+          ? wouldClipLeftAligned || rect.left > vw / 2
+          : rect.right > vw - rect.left,
+      );
+    }
+    setOpen((prev) => !prev);
   };
 
   const handleItemKeyDown = (

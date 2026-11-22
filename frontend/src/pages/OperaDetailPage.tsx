@@ -40,6 +40,7 @@ import {
   CATEGORIA_LABELS,
   LEVEL_LABELS,
   TIPOLOGIA_ENTE_LABELS,
+  toSafeHttpUrl,
 } from "../utils/format";
 
 interface OperaDetailPageProps {
@@ -106,7 +107,11 @@ export function OperaDetailPage({
     setOperaError(null);
     setOpera(null);
     setNarration(null);
+    setNarrationFallback(false);
+    setNarrationLoading(false);
     setRelated([]);
+    setRelatedError(null);
+    setRelatedLoading(false);
 
     const loadOpera = async () => {
       try {
@@ -123,7 +128,11 @@ export function OperaDetailPage({
           throw new Error("Opera non specificata.");
         }
 
-        if (!controller.signal.aborted) setOpera(data);
+        if (!controller.signal.aborted) {
+          setNarrationLoading(true);
+          setRelatedLoading(true);
+          setOpera(data);
+        }
       } catch (err) {
         if (
           controller.signal.aborted ||
@@ -212,8 +221,18 @@ export function OperaDetailPage({
   }, [opera?.id]);
 
   const audioScriptText = narration
-    ? narration.testo_lettura || narration.script_audio
+    ? narration.script_audio || narration.testo_lettura
     : opera?.descrizione_ufficiale || "";
+
+  useEffect(() => {
+    const prevTitle = document.title;
+    if (opera) {
+      document.title = `${opera.titolo} — Cogito`;
+    }
+    return () => {
+      document.title = prevTitle;
+    };
+  }, [opera]);
 
   useEffect(() => {
     if (!operaLoading && opera && !narrationLoading && audioScriptText) {
@@ -350,8 +369,8 @@ export function OperaDetailPage({
                     <div className="flex flex-wrap items-center gap-4 pt-2">
                       <a
                         href={buildGoogleMapsDirectionsUrl(
-                          opera.ente.lat,
-                          opera.ente.lng,
+                          opera.lat,
+                          opera.lng,
                         )}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -361,9 +380,9 @@ export function OperaDetailPage({
                         <span>Calcola percorso su Google Maps</span>
                       </a>
 
-                      {opera.ente.sito_web && (
+                      {toSafeHttpUrl(opera.ente.sito_web) && (
                         <a
-                          href={opera.ente.sito_web}
+                          href={toSafeHttpUrl(opera.ente.sito_web)!}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex min-h-[48px] items-center gap-1.5 text-base font-semibold text-gold-deep underline underline-offset-4 hover:text-gold-dark"
@@ -381,6 +400,12 @@ export function OperaDetailPage({
                     <img
                       src={opera.immagine_url}
                       alt={opera.titolo}
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        if (!img.src.endsWith("/images/castello-ursino.svg")) {
+                          img.src = "/images/castello-ursino.svg";
+                        }
+                      }}
                       className="max-h-[380px] w-full rounded-2xl object-cover"
                     />
                   </div>

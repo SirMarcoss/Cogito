@@ -2,7 +2,7 @@ import { ArrowRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { CorrelazioneItemOut, OperaDetailOut } from "../../types/api";
-import { CATEGORIA_LABELS } from "../../utils/format";
+import { CATEGORIA_LABELS, formatRelationType } from "../../utils/format";
 
 interface ConnectionsGraphProps {
   sourceOpera: OperaDetailOut;
@@ -87,7 +87,9 @@ export function ConnectionsGraph({
     };
   }, [sourceOpera.id, connections]);
 
-  if (connections.length === 0) {
+  const visibleConnections = connections.slice(0, 3);
+
+  if (visibleConnections.length === 0) {
     return (
       <p className="text-xl text-ink-secondary">
         Non risultano al momento opere, documenti o monumenti collegati a questo
@@ -96,7 +98,7 @@ export function ConnectionsGraph({
     );
   }
 
-  const count = connections.length;
+  const count = visibleConnections.length;
   const centerX = 570;
   const centerY = 66;
   const targetY = 382;
@@ -131,7 +133,7 @@ export function ConnectionsGraph({
           className="h-auto w-full min-w-[620px] lg:min-w-0"
         >
           {/* Curved connector paths + animated draw-in + flowing golden pulse along active path */}
-          {connections.map((corr, idx) => {
+          {visibleConnections.map((corr, idx) => {
             const tx = nodeXs[idx];
             const lp = labelPositions[idx];
             const isHighlighted = selectedId === corr.opera.id;
@@ -226,7 +228,7 @@ export function ConnectionsGraph({
                     fontWeight="600"
                     fontFamily="Inter, sans-serif"
                   >
-                    {truncateText(corr.tipo_relazione, 28)}
+                    {truncateText(formatRelationType(corr.tipo_relazione), 28)}
                   </text>
                 </g>
               </g>
@@ -286,18 +288,19 @@ export function ConnectionsGraph({
           </g>
 
           {/* Correlated Target Nodes with Staggered Upward Reveal + Highlight Ring */}
-          {connections.map((corr, idx) => {
+          {visibleConnections.map((corr, idx) => {
             const tx = nodeXs[idx];
             const isHighlighted = selectedId === corr.opera.id;
             const [line1, line2] = wrapTwoLines(corr.opera.titolo, 24);
             const nodeOffsetY = entered ? targetY : targetY + 26;
+            const relationLabel = formatRelationType(corr.tipo_relazione);
 
             return (
               <g
                 key={`node-${corr.opera.id}`}
                 role="button"
                 tabIndex={0}
-                aria-label={`Apri scheda di ${corr.opera.titolo} (${corr.tipo_relazione})`}
+                aria-label={`Apri scheda di ${corr.opera.titolo} (${relationLabel})`}
                 transform={`translate(${tx}, ${nodeOffsetY})`}
                 onMouseEnter={() => setSelectedId(corr.opera.id)}
                 onFocus={() => setSelectedId(corr.opera.id)}
@@ -379,7 +382,7 @@ export function ConnectionsGraph({
 
       {/* Clear Editorial Explanations & Direct Links for Each Connected Work */}
       <ul className="divide-y divide-gold-light/60">
-        {connections.map((corr) => {
+        {visibleConnections.map((corr) => {
           const isHighlighted = selectedId === corr.opera.id;
           return (
             <li
@@ -391,7 +394,7 @@ export function ConnectionsGraph({
             >
               <div className="space-y-1.5">
                 <p className="text-sm font-semibold uppercase tracking-[0.16em] text-gold-deep">
-                  {corr.tipo_relazione} ·{" "}
+                  {formatRelationType(corr.tipo_relazione)} ·{" "}
                   {CATEGORIA_LABELS[corr.opera.categoria]}
                 </p>
 

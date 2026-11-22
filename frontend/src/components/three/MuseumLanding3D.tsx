@@ -101,6 +101,13 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
         -(e.clientY / Math.max(1, window.innerHeight) - 0.5) * 2;
     };
 
+    const handleContextLost = (e: Event) => {
+      e.preventDefault();
+      setLoaderVisible(false);
+      setWebglUnsupported(true);
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+
     const initMuseum = async () => {
       try {
         museumHandle = await buildNeoclassicalMuseum(canvas, {
@@ -203,6 +210,7 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
         window.removeEventListener("resize", handleResize);
         window.removeEventListener("pointermove", handlePointerMove);
       }
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
       museumHandle?.dispose();
       handleRef.current = null;
     };
@@ -278,8 +286,12 @@ export function MuseumLanding3D({ onEnter }: MuseumLanding3DProps) {
 
           <button
             type="button"
+            disabled={hintOpacity <= 0.05}
+            tabIndex={hintOpacity <= 0.05 ? -1 : 0}
             onClick={completeEntry}
-            className="pointer-events-auto btn-museum-secondary bg-panna/85 backdrop-blur-sm"
+            className={`${
+              hintOpacity <= 0.05 ? "pointer-events-none" : "pointer-events-auto"
+            } btn-museum-secondary bg-panna/85 backdrop-blur-sm`}
           >
             <span>Entra subito</span>
             <ArrowRight className="h-5 w-5" aria-hidden="true" />

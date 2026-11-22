@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   BrowserRouter,
   Navigate,
@@ -8,8 +8,15 @@ import {
 } from "react-router-dom";
 import { QrScannerModal } from "./components/qr/QrScannerModal";
 import { useUserLevel } from "./hooks/useUserLevel";
-import { MainPage } from "./pages/MainPage";
-import { OperaDetailPage } from "./pages/OperaDetailPage";
+
+const MainPage = lazy(() =>
+  import("./pages/MainPage").then((m) => ({ default: m.MainPage })),
+);
+const OperaDetailPage = lazy(() =>
+  import("./pages/OperaDetailPage").then((m) => ({
+    default: m.OperaDetailPage,
+  })),
+);
 
 function ScrollToTopOnRouteChange() {
   const { pathname } = useLocation();
@@ -28,40 +35,50 @@ export function App() {
   return (
     <BrowserRouter>
       <ScrollToTopOnRouteChange />
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <MainPage
-              onOpenQrScanner={openQrScanner}
-              userLevel={level}
-              hasSavedLevel={hasSavedLevel}
-              onChangeUserLevel={setLevel}
-            />
-          }
-        />
-        <Route
-          path="/opera/:id"
-          element={
-            <OperaDetailPage
-              onOpenQrScanner={openQrScanner}
-              userLevel={level}
-              onChangeUserLevel={setLevel}
-            />
-          }
-        />
-        <Route
-          path="/qr/:code"
-          element={
-            <OperaDetailPage
-              onOpenQrScanner={openQrScanner}
-              userLevel={level}
-              onChangeUserLevel={setLevel}
-            />
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center bg-panna px-6 text-center">
+            <p className="font-serif text-3xl text-ink-secondary">
+              Caricamento di Cogito…
+            </p>
+          </div>
+        }
+      >
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <MainPage
+                onOpenQrScanner={openQrScanner}
+                userLevel={level}
+                hasSavedLevel={hasSavedLevel}
+                onChangeUserLevel={setLevel}
+              />
+            }
+          />
+          <Route
+            path="/opera/:id"
+            element={
+              <OperaDetailPage
+                onOpenQrScanner={openQrScanner}
+                userLevel={level}
+                onChangeUserLevel={setLevel}
+              />
+            }
+          />
+          <Route
+            path="/qr/:code"
+            element={
+              <OperaDetailPage
+                onOpenQrScanner={openQrScanner}
+                userLevel={level}
+                onChangeUserLevel={setLevel}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
 
       <QrScannerModal
         open={qrModalOpen}
@@ -70,5 +87,3 @@ export function App() {
     </BrowserRouter>
   );
 }
-
-export default App;

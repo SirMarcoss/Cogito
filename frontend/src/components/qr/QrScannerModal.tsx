@@ -1,5 +1,5 @@
 import { Html5Qrcode } from "html5-qrcode";
-import { ArrowRight, Camera, Keyboard, QrCode, X } from "lucide-react";
+import { ArrowRight, Camera, Keyboard, QrCode, RefreshCw, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { extractQrCodeFromInput } from "../../utils/format";
@@ -14,6 +14,9 @@ type ScanTab = "camera" | "manual";
 export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
   const navigate = useNavigate();
   const readerElementId = useId().replace(/:/g, "");
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const closingRef = useRef(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const manualInputRef = useRef<HTMLInputElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -25,6 +28,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
   const [manualError, setManualError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
   const stopCameraSafely = useCallback(async () => {
     const instance = scannerRef.current;
@@ -46,6 +50,13 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
     }
   }, []);
 
+  const handleCloseModal = useCallback(async () => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    await stopCameraSafely();
+    onClose();
+  }, [onClose, stopCameraSafely]);
+
   const navigateWithCode = useCallback(
     async (raw: string) => {
       const code = extractQrCodeFromInput(raw);
@@ -61,24 +72,54 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
   );
 
   useEffect(() => {
+    if (open) {
+      closingRef.current = false;
+      if (document.activeElement instanceof HTMLElement) {
+        previousFocusRef.current = document.activeElement;
+      }
+      return;
+    }
+
+    setManualCode("");
+    setManualError(null);
+    setCameraError(null);
+    setCameraReady(false);
+    void stopCameraSafely();
+    if (previousFocusRef.current) {
+      previousFocusRef.current.focus({ preventScroll: true });
+      previousFocusRef.current = null;
+    }
+  }, [open, stopCameraSafely]);
+
+  useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        void stopCameraSafely().then(onClose);
+        e.preventDefault();
+        void handleCloseModal();
+        return;
+      }
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]), [tabindex="0"]',
+          ),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [open, onClose, stopCameraSafely]);
-
-  useEffect(() => {
-    if (!open) {
-      setManualError(null);
-      setCameraError(null);
-      setCameraReady(false);
-      void stopCameraSafely();
-    }
-  }, [open, stopCameraSafely]);
+  }, [open, handleCloseModal]);
 
   useEffect(() => {
     if (!open || tab !== "camera") {
@@ -104,8 +145,10 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
           },
           (decodedText) => {
             if (cancelled) return;
+            const code = extractQrCodeFromInput(decodedText);
+            if (!code) return;
             cancelled = true;
-            void navigateWithCode(decodedText);
+            void navigateWithCode(code);
           },
           () => {
             // Frame without QR code; continue scanning
@@ -115,7 +158,6 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
         if (!cancelled) {
           setCameraReady(true);
         } else {
-          // Stop the local instance directly even if scannerRef was nulled during cancellation
           if (scannerRef.current === scanner) {
             scannerRef.current = null;
           }
@@ -151,7 +193,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
       window.clearTimeout(timer);
       void stopCameraSafely();
     };
-  }, [open, tab, readerElementId, navigateWithCode, stopCameraSafely]);
+  }, [open, tab, retryCount, readerElementId, navigateWithCode, stopCameraSafely]);
 
   useEffect(() => {
     if (!open) return;
@@ -182,6 +224,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby="qr-modal-title"
@@ -207,7 +250,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
           <button
             ref={closeButtonRef}
             type="button"
-            onClick={() => void stopCameraSafely().then(onClose)}
+            onClick={() => void handleCloseModal()}
             aria-label="Chiudi finestra QR"
             className="inline-flex min-h-[48px] min-w-[48px] items-center justify-center rounded-full border border-gold-light text-ink transition hover:border-gold-deep hover:bg-panna-soft"
           >
@@ -225,6 +268,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
             id="qr-tab-camera"
             type="button"
             role="tab"
+            tabIndex={tab === "camera" ? 0 : -1}
             aria-selected={tab === "camera"}
             aria-controls="qr-panel-camera"
             onKeyDown={handleTabKeyDown}
@@ -244,6 +288,7 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
             id="qr-tab-manual"
             type="button"
             role="tab"
+            tabIndex={tab === "manual" ? 0 : -1}
             aria-selected={tab === "manual"}
             aria-controls="qr-panel-manual"
             onKeyDown={handleTabKeyDown}
@@ -286,16 +331,28 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
             </div>
 
             {cameraError && (
-              <div className="space-y-4 pt-2">
-                <p className="text-base text-ink-secondary">{cameraError}</p>
-                <button
-                  type="button"
-                  onClick={() => setTab("manual")}
-                  className="btn-museum-primary w-full"
-                >
-                  <Keyboard className="h-5 w-5" aria-hidden="true" />
-                  <span>Inserisci codice manualmente</span>
-                </button>
+              <div className="space-y-3 pt-2">
+                <p role="alert" className="text-base text-ink-secondary">
+                  {cameraError}
+                </p>
+                <div className="flex flex-col gap-2.5 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setTab("manual")}
+                    className="btn-museum-primary flex-1"
+                  >
+                    <Keyboard className="h-5 w-5" aria-hidden="true" />
+                    <span>Inserisci codice manualmente</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRetryCount((c) => c + 1)}
+                    className="btn-museum-secondary shrink-0"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    <span>Riprova fotocamera</span>
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -321,6 +378,8 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
                 id="modal-manual-qr-input"
                 type="text"
                 value={manualCode}
+                aria-invalid={Boolean(manualError)}
+                aria-describedby={manualError ? "modal-manual-qr-error" : undefined}
                 onChange={(e) => {
                   setManualCode(e.target.value);
                   if (manualError) setManualError(null);
@@ -331,7 +390,11 @@ export function QrScannerModal({ open, onClose }: QrScannerModalProps) {
                 className="mt-2 min-h-[56px] w-full border-b-2 border-gold-deep/60 bg-transparent px-1 text-2xl font-semibold uppercase tracking-wider text-ink placeholder:text-ink-muted/60 focus:border-gold-deep focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold-deep focus-visible:rounded-sm"
               />
               {manualError && (
-                <p className="mt-2 text-base font-medium text-[#8A3727]">
+                <p
+                  id="modal-manual-qr-error"
+                  role="alert"
+                  className="mt-2 text-base font-medium text-[#8A3727]"
+                >
                   {manualError}
                 </p>
               )}
